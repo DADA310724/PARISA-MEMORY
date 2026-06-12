@@ -41,7 +41,38 @@ export default function SubFolderView() {
 
   useEffect(() => {
     if (!buttonId) return;
-    getSubButtons(buttonId).then((data) => { setSubs(data); setLoading(false); });
+    getSubButtons(buttonId).then(async (data) => {
+      setSubs(data);
+      setLoading(false);
+      // Background sync: update file counts for sub-buttons with drive_folder
+      const driveSubs = data.filter(s => s.link_type === "drive_folder" && s.drive_folder_id);
+      if (driveSubs.length === 0) return;
+      try {
+        const { ensureFirebase, ref, set } = await import("@/lib/firebase");
+        const res = await fetch("/api/drive/count-folders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folderIds: driveSubs.map(s => s.drive_folder_id!) }),
+        });
+        if (!res.ok) return;
+        const { counts } = await res.json() as { counts: Record<string, number> };
+        const db = await ensureFirebase();
+        const updated = [...data];
+        await Promise.all(
+          driveSubs.map(async s => {
+            const count = counts[s.drive_folder_id!];
+            if (typeof count === "number" && count !== s.file_count) {
+              await set(ref(db, `sub_buttons/${buttonId}/${s.id}/file_count`), count);
+              const idx = updated.findIndex(u => u.id === s.id);
+              if (idx >= 0) updated[idx] = { ...updated[idx], file_count: count };
+            }
+          }),
+        );
+        setSubs([...updated]);
+      } catch (e) {
+        console.warn("Sub-button count sync failed", e);
+      }
+    });
   }, [buttonId]);
 
   function handleSubClick(sub: SubButton) {
@@ -117,6 +148,12 @@ export default function SubFolderView() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-white text-[15px] truncate leading-tight">{sub.label}</p>
+                    {typeof sub.file_count === "number" && (
+                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                        style={{ background: `${color}22`, borderColor: `${color}55`, color: color, boxShadow: `0 0 6px ${color}40` }}>
+                        {sub.file_count} টি
+                      </span>
+                    )}
                   </div>
                   <p className="text-[12px] text-white/45 truncate mt-0.5 font-['Hind_Siliguri']">
                     {sub.last_message ?? sub.description ?? "ক্লিক করুন খুলতে"}

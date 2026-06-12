@@ -25,6 +25,7 @@ export interface SubButton {
   last_message?: string;
   badge?: number;
   updated_at?: number;
+  file_count?: number;
 }
 
 export interface DashboardButton {
@@ -152,6 +153,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
             .sort((a, b) => a.order - b.order);
           setButtons(list);
           setLoading(false);
+
+          // Background auto-sync: update Drive file counts (skip if synced < 5 min ago)
+          const driveBtns = list.filter(
+            b => b.link_type === "drive_folder" && b.drive_folder_id,
+          );
+          if (driveBtns.length > 0) {
+            const now = Date.now();
+            const FIVE_MIN = 5 * 60 * 1000;
+            const lastSync = Number(sessionStorage.getItem("drive_count_sync") ?? "0");
+            if (now - lastSync > FIVE_MIN) {
+              sessionStorage.setItem("drive_count_sync", String(now));
+              (async () => {
+                try {
+                  const folderIds = driveBtns.map(b => b.drive_folder_id!);
+                  const res = await fetch("/api/drive/count-folders", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ folderIds }),
+                  });
+                  if (!res.ok) return;
+                  const { counts } = await res.json() as { counts: Record<string, number> };
+                  await Promise.all(
+                    driveBtns.map(async b => {
+                      const count = counts[b.drive_folder_id!];
+                      if (typeof count === "number" && count !== b.file_count) {
+                        await fbSet(ref(db, `buttons/${b.id}/file_count`), count);
+                      }
+                    }),
+                  );
+                } catch (e) {
+                  console.warn("Drive count sync failed", e);
+                }
+              })();
+            }
+          }
         });
       } catch (e) {
         console.error("AppContext init failed", e);

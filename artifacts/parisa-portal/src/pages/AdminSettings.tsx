@@ -447,7 +447,7 @@ export default function AdminSettings() {
         ? (buttons.find(b => b.id === editingCustomFolder)?.order ?? buttons.length + 1)
         : buttons.length + 1,
       description: newFolder.description || "",
-      file_count: editingCustomFolder ? (buttons.find(b => b.id === editingCustomFolder)?.file_count ?? 0) : 0,
+      file_count: buttons.find(b => b.id === editingCustomFolder)?.file_count,
       has_sub_buttons: editingCustomFolder ? (buttons.find(b => b.id === editingCustomFolder)?.has_sub_buttons ?? false) : false,
     };
     // Optimistic UI reset — Firebase syncs in background
