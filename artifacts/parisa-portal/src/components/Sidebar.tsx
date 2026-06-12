@@ -45,7 +45,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       className="h-full w-72 shrink-0 flex flex-col"
       data-testid="sidebar"
       style={{
-        background: "linear-gradient(180deg, rgba(0,72,95,0.97) 0%, rgba(0,52,75,0.99) 100%)",
+        background: "linear-gradient(180deg, rgba(4,14,14,0.97) 0%, rgba(2,10,10,0.99) 100%)",
         borderRight: "1px solid rgba(0,212,170,0.22)",
         backdropFilter: "blur(24px)",
       }}
@@ -215,7 +215,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* Footer */}
       <div style={{ borderTop: "1px solid rgba(0,212,170,0.1)" }}>
         <a href="https://t.me/DADA310724" target="_blank" rel="noopener noreferrer"
-          className="px-4 py-2.5 flex items-center justify-between hover:bg-white/5 transition-all"
+          className="px-4 py-2 flex items-center justify-between hover:bg-white/5 transition-all"
         >
           <p className="text-[10px] font-medium tracking-[0.2em] uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>
             Development by <span style={{ color: "rgba(0,212,170,0.8)", fontWeight: 700 }}>DADA</span>
@@ -233,7 +233,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             <SiTelegram style={{ width: 16, height: 16, color: "rgba(33,186,252,0.9)" }} />
           </div>
         </a>
-        <div className="px-4 pb-3 flex items-center justify-end">
+        <div className="pb-2 flex items-center justify-center">
           <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
             style={{ background: "rgba(0,212,170,0.08)", border: "1px solid rgba(0,212,170,0.2)", color: "rgba(0,212,170,0.5)" }}>
             v{APP_VERSION}

@@ -44,3 +44,24 @@ description: Summary of all implemented features across sessions for parisa-port
 
 **Why optimistic folder save**: improves perceived speed; Firebase is reliable enough that failures are rare.
 **Why sub-button tab in edit modal**: screenshots from user showed Main/সাব-ফোল্ডার tab design; SubFolderView already renders WhatsApp list style.
+
+## Session 4 (24-task polish batch)
+- **Back buttons**: FolderView (3 places) + SubFolderView (1) + AdminSettings (1) — all use `w-9 h-9 rounded-xl` + `rgba(255,255,255,0.06)` bg + `ArrowLeft` icon + `window.history.back()`
+- **Sidebar**: Color → `rgba(4,14,14,0.97)` to `rgba(2,10,10,0.99)`; footer py-2.5→py-2; version row justify-center
+- **Fonts**: Google Fonts import for Hind Siliguri + Noto Sans Bengali in index.css; `--app-font-sans` updated
+- **Theme hex picker**: ThemePanel has `<input type="color">` with hexToHsl() converter; applies custom color as CSS vars
+- **Folder icons**: ✏️/🗑️ replaced with Lucide `<Pencil>` / `<Trash2>` icons (w-3.5 h-3.5)
+- **HTML link type removed**: folder type selector now only has "drive" and "external" (grid-cols-3→2)
+- **PDF overlay**: `<div>` absolute top-right 52×46px background:#f1f3f4 covers Google Docs viewer's ↗ button
+- **Video/Audio autoplay**: videoRef + audioRef added; useEffect calls .play() when viewerOpen && matching viewerType
+- **Image preloading**: useEffect preloads next+prev images in gallery on viewerIndex change
+- **API key test REAL**: makeKeyHandlers.test now calls `/api/ai/chat` with the single key; sets status ok/error based on response
+- **API key eye icon**: showKeyIdx state in MultiKeyPanel; Eye/EyeOff toggle shows/hides full key text
+- **Duplicate key detection**: dupKeys Set in MultiKeyPanel; DUP badge + yellow border on duplicate entries
+- **Console links**: consoleUrl prop added to MultiKeyPanel; Groq→console.groq.com/keys, Gemini→aistudio.google.com, OpenRouter→openrouter.ai/settings/keys
+- **Admin back button**: ArrowLeft icon + window.history.back() (was `← text` + navigate("/"))
+- **TS errors fixed**: `.catch(() => ({}))` → `({} as TypeName)` for drive tab config calls
+
+**Why real API test**: fake setTimeout gave false "ok" status regardless of key validity; real test catches 401/403.
+**Why hexToHsl**: CSS vars use HSL format (e.g. "174 82% 48%"); color picker gives hex; conversion needed.
+**Why PDF overlay white div**: Google Docs viewer ↗ button is cross-origin (can't CSS-target); white div same bg color as viewer toolbar covers it.

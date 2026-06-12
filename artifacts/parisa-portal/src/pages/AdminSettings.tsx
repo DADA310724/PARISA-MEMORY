@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Pencil, Trash2, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { useApp, type DashboardButton, type SubButton } from "../contexts/AppContext";
 import { ensureFirebase, ref, get, set, remove } from "../lib/firebase";
 import { api } from "../lib/api";
@@ -59,9 +60,10 @@ function statusDot(status: ApiKeyEntry["status"]) {
 }
 
 function MultiKeyPanel({
-  title, icon, keys, onAdd, onRemove, onTest, onSave, saving, placeholder,
+  title, icon, keys, onAdd, onRemove, onTest, onSave, saving, placeholder, consoleUrl,
 }: {
   title: string; icon: string; keys: ApiKeyEntry[]; saving: boolean; placeholder: string;
+  consoleUrl?: string;
   onAdd: (key: string, label: string) => void;
   onRemove: (idx: number) => void;
   onTest: (idx: number) => void;
@@ -69,19 +71,36 @@ function MultiKeyPanel({
 }) {
   const [newKey, setNewKey] = useState("");
   const [newLabel, setNewLabel] = useState("");
-  const [showKey, setShowKey] = useState(false);
+  const [showNewKey, setShowNewKey] = useState(false);
+  const [showKeyIdx, setShowKeyIdx] = useState<number | null>(null);
   const activeCount = keys.filter(k => k.status === "ok").length;
+  const keyValues = keys.map(k => k.key);
+  const dupKeys = new Set(keyValues.filter((k, i) => keyValues.indexOf(k) !== i));
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4" style={{ background: 'rgba(0,229,255,0.04)', border: '1px solid rgba(0,229,255,0.15)' }}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-cyan-300 font-bold text-sm">{icon} {title} API Keys</h3>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeCount > 0 ? 'bg-green-500/20 text-green-300' : keys.length > 0 ? 'bg-red-500/20 text-red-300' : 'bg-white/10 text-white/40'}`}>
-            {activeCount}/{keys.length} সক্রিয়
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeCount > 0 ? 'bg-green-500/20 text-green-300' : keys.length > 0 ? 'bg-red-500/20 text-red-300' : 'bg-white/10 text-white/40'}`}>
+              {activeCount}/{keys.length} সক্রিয়
+            </span>
+            {consoleUrl && (
+              <a href={consoleUrl} target="_blank" rel="noopener noreferrer"
+                className="text-[10px] px-2 py-1 rounded-lg flex items-center gap-1 text-cyan-300/70 hover:text-cyan-200 transition-colors"
+                style={{ background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.2)' }}>
+                <ExternalLink className="w-2.5 h-2.5" />Console
+              </a>
+            )}
+          </div>
         </div>
-        <p className="text-white/40 text-xs mb-4">একাধিক key দিন। একটা ব্যর্থ হলে পরেরটা ব্যবহার হবে।</p>
+        <p className="text-white/40 text-xs mb-3">একাধিক key দিন। একটা ব্যর্থ হলে পরেরটা ব্যবহার হবে।</p>
+        {dupKeys.size > 0 && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs text-yellow-300" style={{ background: 'rgba(255,200,0,0.06)', border: '1px solid rgba(255,200,0,0.25)' }}>
+            ⚠️ {dupKeys.size}টি ডুপ্লিকেট key পাওয়া গেছে — অপ্রয়োজনীয় কপি মুছুন
+          </div>
+        )}
         {keys.length === 0 ? (
           <div className="text-center py-6 text-white/30 text-sm">
             <div className="text-3xl mb-2">{icon}</div>
@@ -93,29 +112,40 @@ function MultiKeyPanel({
               <motion.div key={idx} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
                 className="rounded-xl p-3"
                 style={{
-                  background: entry.status === "ok" ? 'rgba(0,200,80,0.06)' : entry.status === "error" ? 'rgba(255,80,80,0.06)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${entry.status === "ok" ? 'rgba(0,200,80,0.25)' : entry.status === "error" ? 'rgba(255,80,80,0.25)' : 'rgba(255,255,255,0.1)'}`,
+                  background: entry.status === "ok" ? 'rgba(0,200,80,0.06)' : entry.status === "error" ? 'rgba(255,80,80,0.06)' : dupKeys.has(entry.key) ? 'rgba(255,200,0,0.05)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${entry.status === "ok" ? 'rgba(0,200,80,0.25)' : entry.status === "error" ? 'rgba(255,80,80,0.25)' : dupKeys.has(entry.key) ? 'rgba(255,200,0,0.3)' : 'rgba(255,255,255,0.1)'}`,
                 }}>
                 <div className="flex items-center gap-2.5">
                   {statusDot(entry.status)}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-white/80 text-xs font-semibold">{entry.label}</span>
-                      <span className="text-white/30 text-[10px] font-mono truncate">{entry.key.slice(0, 12)}…</span>
+                      {dupKeys.has(entry.key) && <span className="text-[9px] font-bold text-yellow-400 bg-yellow-400/10 px-1 rounded">DUP</span>}
                     </div>
+                    <p className="text-white/30 text-[10px] font-mono truncate mt-0.5 select-all">
+                      {showKeyIdx === idx ? entry.key : entry.key.slice(0, 16) + "…"}
+                    </p>
                     {entry.info && (
                       <p className={`text-[10px] mt-0.5 ${entry.status === "ok" ? 'text-green-300/70' : 'text-red-300/70'}`}>{entry.info}</p>
                     )}
                   </div>
-                  <div className="flex gap-1.5 flex-shrink-0">
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button onClick={() => setShowKeyIdx(showKeyIdx === idx ? null : idx)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 transition-colors"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      title={showKeyIdx === idx ? "লুকান" : "দেখুন"}>
+                      {showKeyIdx === idx ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    </button>
                     <button onClick={() => onTest(idx)} disabled={entry.status === "testing"}
                       className="text-[10px] px-2 py-1 rounded-lg transition-all"
                       style={{ background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: '#00e5ff' }}>
                       {entry.status === "testing" ? "..." : "টেস্ট"}
                     </button>
                     <button onClick={() => onRemove(idx)}
-                      className="text-[10px] px-2 py-1 rounded-lg text-red-400 transition-all"
-                      style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)' }}>✕</button>
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 transition-all"
+                      style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)' }}>
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -127,14 +157,16 @@ function MultiKeyPanel({
           <input type="text" value={newLabel} onChange={e => setNewLabel(e.target.value)}
             placeholder="নাম (যেমন: Key 1, Primary)"
             className="w-full rounded-lg px-3 py-2 text-white text-xs focus:outline-none"
-            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)' }} />
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', fontFamily: "'Hind Siliguri',sans-serif" }} />
           <div className="relative">
-            <input type={showKey ? "text" : "password"} value={newKey} onChange={e => setNewKey(e.target.value)}
+            <input type={showNewKey ? "text" : "password"} value={newKey} onChange={e => setNewKey(e.target.value)}
               placeholder={placeholder}
               className="w-full rounded-lg px-3 py-2 text-white text-xs focus:outline-none pr-10 font-mono"
               style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)' }}
               onKeyDown={e => { if (e.key === "Enter") { onAdd(newKey, newLabel); setNewKey(""); setNewLabel(""); } }} />
-            <button onClick={() => setShowKey(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 text-xs">{showKey ? "🙈" : "👁️"}</button>
+            <button onClick={() => setShowNewKey(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors">
+              {showNewKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
           <button onClick={() => { onAdd(newKey, newLabel); setNewKey(""); setNewLabel(""); }}
             className="w-full py-2 rounded-lg text-xs font-bold transition-all"
@@ -150,10 +182,10 @@ function MultiKeyPanel({
       )}
       <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="space-y-1.5 text-xs text-white/50">
-          <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" /><span>সক্রিয় — key কাজ করছে</span></div>
-          <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /><span>ব্যর্থ — key কাজ করছে না</span></div>
-          <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" /><span>পরীক্ষা করছে...</span></div>
-          <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-white/20 inline-block" /><span>অজানা — "টেস্ট" click করুন</span></div>
+          <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" /><span>সবুজ = key কাজ করছে</span></div>
+          <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /><span>লাল = key কাজ করছে না — নতুন key দিন</span></div>
+          <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" /><span>হলুদ = পরীক্ষা চলছে...</span></div>
+          <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-white/20 inline-block" /><span>ধূসর = "টেস্ট" চাপুন</span></div>
         </div>
       </div>
     </div>
@@ -219,6 +251,35 @@ function ThemePanel({ showMsg, saving, setSaving }: {
     finally { setSaving(false); }
   }
 
+  const [customHex, setCustomHex] = useState("#00d4aa");
+
+  function hexToHsl(hex: string): string {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    if (max === min) return `0 0% ${Math.round(l * 100)}%`;
+    const d = max - min;
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    let h = max === r ? ((g - b) / d + (g < b ? 6 : 0)) / 6
+      : max === g ? ((b - r) / d + 2) / 6
+      : ((r - g) / d + 4) / 6;
+    return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+  }
+
+  function applyCustomColor() {
+    const hsl = hexToHsl(customHex);
+    const parts = hsl.split(" ");
+    const h = parts[0] ?? "174";
+    const bgHsl = `${h} 55% 5%`;
+    const accentHsl = `${h} ${Math.max(50, parseInt(parts[1] ?? "80") - 15)}% ${Math.max(30, parseInt(parts[2] ?? "48") - 10)}%`;
+    const customTheme = { key: "custom", label: "Custom", primary: hsl, background: bgHsl, accent: accentHsl, previewColor: customHex };
+    applyTheme(customTheme);
+    setActiveTheme("custom");
+    showMsg(`✅ কাস্টম রঙ প্রয়োগ হয়েছে`);
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -250,6 +311,28 @@ function ThemePanel({ showMsg, saving, setSaving }: {
           ))}
         </div>
       </div>
+
+      {/* Custom hex color picker */}
+      <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <h3 className="text-cyan-300 font-bold text-sm mb-3">🖌️ কাস্টম রঙ</h3>
+        <p className="text-white/40 text-xs mb-3" style={{ fontFamily: "'Hind Siliguri',sans-serif" }}>নিজের পছন্দের রঙ বেছে নিন</p>
+        <div className="flex items-center gap-3">
+          <input type="color" value={customHex} onChange={e => setCustomHex(e.target.value)}
+            className="w-12 h-12 rounded-xl cursor-pointer border-0 bg-transparent p-0.5 flex-shrink-0"
+            style={{ border: '1px solid rgba(255,255,255,0.15)' }} />
+          <input type="text" value={customHex} onChange={e => { if (/^#[0-9A-Fa-f]{0,6}$/.test(e.target.value)) setCustomHex(e.target.value); }}
+            className="flex-1 rounded-lg px-3 py-2.5 text-white text-sm font-mono focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
+            maxLength={7} />
+          <div className="w-10 h-10 rounded-xl flex-shrink-0" style={{ background: customHex, border: '1px solid rgba(255,255,255,0.2)' }} />
+        </div>
+        <button onClick={applyCustomColor}
+          className="w-full mt-3 py-2 rounded-xl text-xs font-bold transition-all"
+          style={{ background: `${customHex}22`, border: `1px solid ${customHex}66`, color: customHex }}>
+          এই রঙ প্রয়োগ করুন
+        </button>
+      </div>
+
       <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
         <h3 className="text-cyan-300 font-bold text-sm mb-3">⚙️ থিম তথ্য</h3>
         <div className="space-y-2 text-xs text-white/50" style={{ fontFamily: "'Hind Siliguri',sans-serif" }}>
@@ -324,7 +407,7 @@ export default function AdminSettings() {
     setDriveFolderTest(null);
     Promise.all([
       api<{ ready: boolean }>("/drive/ready").catch(() => ({ ready: false })),
-      api<{ hasSA?: boolean; saEmail?: string; driveParentFolderId?: string }>("/config").catch(() => ({})),
+      api<{ hasSA?: boolean; saEmail?: string; driveParentFolderId?: string }>("/config").catch(() => ({} as { hasSA?: boolean; saEmail?: string; driveParentFolderId?: string })),
     ]).then(([driveResp, cfgResp]) => {
       setDriveReady(driveResp.ready);
       if (cfgResp.saEmail) setSaEmail(cfgResp.saEmail);
@@ -410,15 +493,34 @@ export default function AdminSettings() {
     test: async (idx: number) => {
       const keys = [...((aiConfig[field] as ApiKeyEntry[]) ?? [])];
       if (!keys[idx]) return;
+      const testKey = keys[idx].key;
       keys[idx] = { ...keys[idx], status: "testing" };
       setAiConfig(c => ({ ...c, [field]: keys }));
-      setTimeout(() => {
+      const provider = field === "groqKeys" ? "groq" : field === "geminiKeys" ? "gemini" : "openrouter";
+      try {
+        await api<{ text: string }>("/ai/chat", {
+          method: "POST",
+          body: {
+            messages: [{ role: "user" as const, content: "say ok" }],
+            systemPrompt: "Reply: OK",
+            provider,
+            groqKeys: field === "groqKeys" ? [testKey] : [],
+            geminiKeys: field === "geminiKeys" ? [testKey] : [],
+            openrouterKeys: field === "openrouterKeys" ? [testKey] : [],
+          },
+        });
         setAiConfig(c => {
           const k = [...((c[field] as ApiKeyEntry[]) ?? [])];
-          if (k[idx]) k[idx] = { ...k[idx], status: "ok", info: "সংযুক্ত ✓" };
+          if (k[idx]) k[idx] = { ...k[idx], status: "ok", info: "✓ key সক্রিয় — সংযুক্ত" };
           return { ...c, [field]: k };
         });
-      }, 1500);
+      } catch {
+        setAiConfig(c => {
+          const k = [...((c[field] as ApiKeyEntry[]) ?? [])];
+          if (k[idx]) k[idx] = { ...k[idx], status: "error", info: "✗ key কাজ করছে না — নতুন key দিন" };
+          return { ...c, [field]: k };
+        });
+      }
     },
     save: async () => {
       setSaving(true);
@@ -557,8 +659,11 @@ export default function AdminSettings() {
       <div className="sticky top-0 z-20 flex-shrink-0"
         style={{ background: 'rgba(6,28,26,0.97)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(0,212,170,0.1)' }}>
         <div className="flex items-center gap-3 px-3 py-3">
-          <button onClick={() => navigate("/")}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white/70 hover:text-white text-xl">←</button>
+          <button onClick={() => window.history.back()}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <h1 className="flex-1 text-center font-black uppercase neon-cyan text-sm" style={{ fontFamily: "'Exo 2',sans-serif" }}>ADMIN PANEL</h1>
           <button onClick={() => { setAuth(null); navigate("/"); }}
             className="text-xs text-red-400 px-3 py-1.5 rounded-lg" style={{ border: '1px solid rgba(255,80,80,0.3)' }}>লগআউট</button>
@@ -655,16 +760,19 @@ export default function AdminSettings() {
             {tab === "groq" && (
               <MultiKeyPanel title="Groq" icon="⚡" keys={groqKeys} saving={saving}
                 placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                consoleUrl="https://console.groq.com/keys"
                 onAdd={groqH.add} onRemove={groqH.remove} onTest={groqH.test} onSave={groqH.save} />
             )}
             {tab === "gemini" && (
               <MultiKeyPanel title="Gemini" icon="🌟" keys={geminiKeys} saving={saving}
                 placeholder="AIzaSy_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                consoleUrl="https://aistudio.google.com/app/apikey"
                 onAdd={geminiH.add} onRemove={geminiH.remove} onTest={geminiH.test} onSave={geminiH.save} />
             )}
             {tab === "openrouter" && (
               <MultiKeyPanel title="OpenRouter" icon="🌐" keys={openrouterKeys} saving={saving}
                 placeholder="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                consoleUrl="https://openrouter.ai/settings/keys"
                 onAdd={openrouterH.add} onRemove={openrouterH.remove} onTest={openrouterH.test} onSave={openrouterH.save} />
             )}
 
@@ -835,11 +943,10 @@ export default function AdminSettings() {
                     </div>
                     <div>
                       <p className="text-white/40 text-xs mb-2">ধরন</p>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         {[
-                          { val: "drive",    label: "Google Drive" },
-                          { val: "external", label: "External URL" },
-                          { val: "html",     label: "HTML পেজ" },
+                          { val: "drive",    label: "📁 Google Drive" },
+                          { val: "external", label: "🌐 External URL" },
                         ].map(t => (
                           <button key={t.val} onClick={() => setNewFolder(f => ({ ...f, linkType: t.val as CustomFolder["linkType"] }))}
                             className={`p-2 rounded-lg text-xs transition-all ${newFolder.linkType === t.val ? 'text-cyan-300' : 'text-white/50'}`}
@@ -908,11 +1015,15 @@ export default function AdminSettings() {
                             <button onClick={() => {
                               setEditingCustomFolder(btn.id);
                               setNewFolder({ name: btn.label, icon: btn.logo_key ?? btn.icon ?? "folder", color: "#00d4aa", linkType: linkType as CustomFolder["linkType"], folderId, description: btn.description || "" });
-                            }} className="text-[10px] px-2 py-1 rounded-lg text-cyan-400"
-                              style={{ background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.2)' }}>✏️</button>
+                            }} className="w-8 h-8 rounded-lg flex items-center justify-center text-cyan-400 transition-colors"
+                              style={{ background: 'rgba(0,212,170,0.1)', border: '1px solid rgba(0,212,170,0.2)' }}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
                             <button onClick={() => deleteCustomFolder(btn.id)}
-                              className="text-[10px] px-2 py-1 rounded-lg text-red-400"
-                              style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)' }}>🗑️</button>
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 transition-colors"
+                              style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)' }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                       );
@@ -1002,7 +1113,7 @@ export default function AdminSettings() {
                       setDriveChecking(true);
                       Promise.all([
                         api<{ ready: boolean }>("/drive/ready").catch(() => ({ ready: false })),
-                        api<{ hasSA?: boolean; saEmail?: string }>("/config").catch(() => ({})),
+                        api<{ hasSA?: boolean; saEmail?: string }>("/config").catch(() => ({} as { hasSA?: boolean; saEmail?: string })),
                       ]).then(([dr, cfg]) => {
                         setDriveReady(dr.ready);
                         if (cfg.saEmail) setSaEmail(cfg.saEmail);

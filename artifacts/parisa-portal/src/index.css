@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import url("https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap");
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
@@ -131,7 +132,7 @@
   --chart-4:  43 90% 55%;
   --chart-5:  200 80% 55%;
 
-  --app-font-sans: 'Inter', 'Hind Siliguri', system-ui, sans-serif;
+  --app-font-sans: 'Inter', 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', Menlo, monospace;
   --radius: 0.75rem;

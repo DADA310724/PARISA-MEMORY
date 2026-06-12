@@ -92,8 +92,9 @@ export default function SubFolderView() {
           backdropFilter: "blur(20px)",
           borderBottom: `1px solid ${parentColor}30`,
         }}>
-        <button onClick={() => setLocation("/dashboard")}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white hover:bg-white/8 transition-colors">
+        <button onClick={() => window.history.back()}
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="w-9 h-9 rounded-xl flex items-center justify-center"

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 import { listFolder, type DriveFile, isFolder, isImage, isVideo, isAudio, isHtml, isPdf, isText, formatSize, proxyUrl, uploadFiles } from "../lib/drive";
 import { useApp } from "../contexts/AppContext";
 import { ensureFirebase, ref, get, set } from "../lib/firebase";
@@ -39,6 +40,8 @@ export default function FolderView() {
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerType, setViewerType] = useState<"image"|"video"|"audio"|"html"|"pdf"|"text"|"generic">("image");
   const [viewerFile, setViewerFile] = useState<DriveFile | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const touchStartX = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -152,6 +155,19 @@ export default function FolderView() {
 
   const prevImage = () => setViewerIndex(i => (i - 1 + imageFiles.length) % imageFiles.length);
   const nextImage = () => setViewerIndex(i => (i + 1) % imageFiles.length);
+
+  useEffect(() => {
+    if (!viewerOpen) return;
+    if (viewerType === 'video' && videoRef.current) videoRef.current.play().catch(() => {});
+    if (viewerType === 'audio' && audioRef.current) audioRef.current.play().catch(() => {});
+  }, [viewerOpen, viewerType]);
+
+  useEffect(() => {
+    if (viewerType !== 'image' || imageFiles.length <= 1) return;
+    const preload = (idx: number) => { const f = imageFiles[idx]; if (f) { const img = new Image(); img.src = proxyUrl(f.id); } };
+    preload((viewerIndex + 1) % imageFiles.length);
+    preload((viewerIndex - 1 + imageFiles.length) % imageFiles.length);
+  }, [viewerIndex, viewerType, imageFiles]);
   const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
@@ -212,7 +228,11 @@ export default function FolderView() {
       <div className="min-h-screen flex flex-col">
         <div className="sticky top-0 z-20" style={{ background:'rgba(10,14,31,0.92)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
           <div className="flex items-center gap-2 px-3 py-3">
-            <button onClick={() => navigate("/")} className="w-9 h-9 rounded-lg flex items-center justify-center text-white/70 hover:text-white text-xl">←</button>
+            <button onClick={() => window.history.back()}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <span className="flex-1 text-center text-sm font-bold neon-cyan" style={{ fontFamily:"'Exo 2',sans-serif" }}>{currentFolder.name}</span>
             <div className="w-9" />
           </div>
@@ -256,7 +276,11 @@ export default function FolderView() {
       {/* Header — folder name shown, no "PARISA MEMORY PORTAL" */}
       <div className="sticky top-0 z-20 flex-shrink-0" style={{ background:'rgba(10,14,31,0.85)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-2 px-3 py-3">
-          <button onClick={goBack} className="w-9 h-9 rounded-lg flex items-center justify-center text-white/70 hover:text-white text-xl flex-shrink-0">←</button>
+          <button onClick={goBack}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-thin">
             {breadcrumbs.map((b, i) => (
               <span key={b.id} className="flex items-center gap-1 whitespace-nowrap">
@@ -433,7 +457,11 @@ export default function FolderView() {
             {/* Viewer Header */}
             <div className="flex items-center justify-between px-3 py-3 flex-shrink-0"
               style={{ background:'rgba(10,14,31,0.97)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
-              <button onClick={() => setViewerOpen(false)} className="w-9 h-9 rounded-lg flex items-center justify-center text-white/70 hover:text-white text-xl">←</button>
+              <button onClick={() => setViewerOpen(false)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <ArrowLeft className="w-5 h-5" />
+              </button>
               <span className="text-white text-xs font-medium truncate max-w-[55vw] text-center" style={{ fontFamily:"'Exo 2',sans-serif" }}>
                 {viewerType === 'image' ? `${viewerIndex + 1} / ${imageFiles.length} — ${imageFiles[viewerIndex]?.name ?? ''}` : viewerFile.name}
               </span>
@@ -467,6 +495,7 @@ export default function FolderView() {
             {viewerType === 'video' && (
               <div className="flex-1 flex items-center justify-center p-4">
                 <video
+                  ref={videoRef}
                   src={proxyUrl(viewerFile.id)}
                   controls autoPlay playsInline
                   preload="auto"
@@ -485,20 +514,22 @@ export default function FolderView() {
                 <div className="w-full max-w-sm rounded-2xl p-8 text-center" style={{ background:'rgba(255,143,0,0.1)', border:'1px solid rgba(255,143,0,0.3)' }}>
                   <motion.div animate={{ scale:[1,1.1,1] }} transition={{ repeat:Infinity, duration:1.5 }} className="text-6xl mb-4">🎵</motion.div>
                   <p className="text-white font-medium mb-6 text-sm truncate">{viewerFile.name}</p>
-                  <audio src={proxyUrl(viewerFile.id)} controls autoPlay preload="auto" className="w-full" controlsList="nodownload noplaybackrate" onContextMenu={e => e.preventDefault()} />
+                  <audio ref={audioRef} src={proxyUrl(viewerFile.id)} controls autoPlay preload="auto" className="w-full" controlsList="nodownload noplaybackrate" onContextMenu={e => e.preventDefault()} />
                 </div>
               </div>
             )}
 
-            {/* PDF — Google Docs embedded viewer, has search, no edit/Drive URL */}
+            {/* PDF — Google Docs embedded viewer with page search */}
             {viewerType === 'pdf' && (
-              <div className="flex-1 overflow-hidden bg-[#1a1a2e] flex flex-col">
+              <div className="flex-1 overflow-hidden bg-[#1a1a2e] flex flex-col relative">
                 <iframe
                   src={`https://docs.google.com/viewer?url=${encodeURIComponent(window.location.origin + proxyUrl(viewerFile.id))}&embedded=true`}
                   className="w-full flex-1 border-0"
                   title={viewerFile.name}
                   allow="autoplay"
                 />
+                {/* Cover the Google Docs external-link button top-right */}
+                <div style={{ position:'absolute', top:0, right:0, width:52, height:46, background:'#f1f3f4', zIndex:10, pointerEvents:'all' }} />
               </div>
             )}
 
