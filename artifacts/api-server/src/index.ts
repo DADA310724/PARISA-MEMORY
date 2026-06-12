@@ -47,7 +47,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 const staticDir = path.resolve(__dirname, "../../parisa-portal/dist/public");
 if (existsSync(staticDir)) {
   app.use(express.static(staticDir));
-  app.get("*", (_req: Request, res: Response) => {
+  app.get("/{*splat}", (_req: Request, res: Response) => {
     res.sendFile(path.join(staticDir, "index.html"));
   });
   console.log(`Serving static files from ${staticDir}`);
