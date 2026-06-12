@@ -462,34 +462,36 @@ export default function AdminSettings() {
     catch { showMsg("❌ মুছতে ব্যর্থ"); }
   };
 
-  const saveSub = async () => {
+  const saveSub = () => {
     if (!newSub.label?.trim() || !editingCustomFolder) { showMsg("⚠️ নাম দিন"); return; }
-    setSaving(true);
-    try {
-      const sub: SubButton = {
-        id: editingSubId || "",
-        label: newSub.label.trim(),
-        logo_key: newSub.logo_key || "folder",
-        icon: newSub.logo_key || "folder",
-        link_type: subLinkType,
-        drive_folder_id: subLinkType === "drive_folder" ? (newSub.drive_folder_id || "") : "",
-        link_value: subLinkType === "external" ? (newSub.link_value || "") : "",
-        last_message: newSub.last_message || "",
-        badge: Number(newSub.badge) || 0,
-        order: editingSubId
-          ? (subButtons.find(s => s.id === editingSubId)?.order ?? subButtons.length + 1)
-          : subButtons.length + 1,
-        updated_at: Date.now(),
-      };
-      await saveSubButton(editingCustomFolder, sub);
-      const updated = await getSubButtons(editingCustomFolder);
-      setSubButtons(updated);
-      setNewSub({ label: "", logo_key: "folder", drive_folder_id: "", link_value: "", last_message: "", badge: 0, order: updated.length + 1 });
-      setEditingSubId(null);
-      setSubLinkType("drive_folder");
-      showMsg("✅ সাব-ফোল্ডার সেভ হয়েছে");
-    } catch (e) { showMsg("❌ সেভ ব্যর্থ: " + (e as Error).message); }
-    finally { setSaving(false); }
+    const sub: SubButton = {
+      id: editingSubId || crypto.randomUUID(),
+      label: newSub.label.trim(),
+      logo_key: newSub.logo_key || "folder",
+      icon: newSub.logo_key || "folder",
+      link_type: subLinkType,
+      drive_folder_id: subLinkType === "drive_folder" ? (newSub.drive_folder_id || "") : "",
+      link_value: subLinkType === "external" ? (newSub.link_value || "") : "",
+      last_message: newSub.last_message || "",
+      badge: Number(newSub.badge) || 0,
+      order: editingSubId
+        ? (subButtons.find(s => s.id === editingSubId)?.order ?? subButtons.length + 1)
+        : subButtons.length + 1,
+      updated_at: Date.now(),
+    };
+    // Optimistic UI update — instant, no loading
+    if (editingSubId) {
+      setSubButtons(prev => prev.map(s => s.id === editingSubId ? sub : s));
+    } else {
+      setSubButtons(prev => [...prev, sub]);
+    }
+    setNewSub({ label: "", logo_key: "folder", drive_folder_id: "", link_value: "", last_message: "", badge: 0, order: subButtons.length + 2 });
+    setEditingSubId(null);
+    setSubLinkType("drive_folder");
+    showMsg("✅ সাব-ফোল্ডার সেভ হয়েছে");
+    // Firebase sync in background
+    const parentId = editingCustomFolder;
+    saveSubButton(parentId, sub).catch(e => showMsg("⚠️ Sync ব্যর্থ: " + (e as Error).message));
   };
 
   const removeSub = async (subId: string) => {

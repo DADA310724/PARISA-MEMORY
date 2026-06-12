@@ -64,23 +64,24 @@ export default function FolderView() {
     try {
       const { files: f } = await listFolder(folderId);
       setFiles(f);
-      // Save file listing to Firebase for AI context + sync file count to button
-      try {
-        const db = await ensureFirebase();
-        const summary = f.slice(0, 100).map(file => ({ name: file.name, type: (file.mimeType || "").split("/")[1] || "file" }));
-        await set(ref(db, `folder_files/${folderId}`), { files: summary, count: f.length, updatedAt: Date.now() });
-        // Update the matching button's file_count on the dashboard
-        const btnSnap = await get(ref(db, "buttons"));
-        const btnVal = btnSnap.val() as Record<string, { drive_folder_id?: string; file_count?: number }> | null;
-        if (btnVal) {
-          for (const [id, btn] of Object.entries(btnVal)) {
-            if (btn.drive_folder_id === folderId && btn.file_count !== f.length) {
-              await set(ref(db, `buttons/${id}/file_count`), f.length);
-              break;
+      // Firebase sync — pure background, never blocks UI
+      (async () => {
+        try {
+          const db = await ensureFirebase();
+          const summary = f.slice(0, 100).map(file => ({ name: file.name, type: (file.mimeType || "").split("/")[1] || "file" }));
+          await set(ref(db, `folder_files/${folderId}`), { files: summary, count: f.length, updatedAt: Date.now() });
+          const btnSnap = await get(ref(db, "buttons"));
+          const btnVal = btnSnap.val() as Record<string, { drive_folder_id?: string; file_count?: number }> | null;
+          if (btnVal) {
+            for (const [id, btn] of Object.entries(btnVal)) {
+              if (btn.drive_folder_id === folderId && btn.file_count !== f.length) {
+                await set(ref(db, `buttons/${id}/file_count`), f.length);
+                break;
+              }
             }
           }
-        }
-      } catch {}
+        } catch {}
+      })();
     } catch (e: unknown) {
       const raw = e instanceof Error ? e.message : "ফোল্ডার লোড ব্যর্থ";
       if (
@@ -468,7 +469,7 @@ export default function FolderView() {
                 <video
                   src={proxyUrl(viewerFile.id)}
                   controls autoPlay playsInline
-                  preload="metadata"
+                  preload="auto"
                   controlsList="nodownload nofullscreen noremoteplayback"
                   disablePictureInPicture
                   className="max-w-full rounded-xl"
@@ -484,7 +485,7 @@ export default function FolderView() {
                 <div className="w-full max-w-sm rounded-2xl p-8 text-center" style={{ background:'rgba(255,143,0,0.1)', border:'1px solid rgba(255,143,0,0.3)' }}>
                   <motion.div animate={{ scale:[1,1.1,1] }} transition={{ repeat:Infinity, duration:1.5 }} className="text-6xl mb-4">🎵</motion.div>
                   <p className="text-white font-medium mb-6 text-sm truncate">{viewerFile.name}</p>
-                  <audio src={proxyUrl(viewerFile.id)} controls autoPlay preload="metadata" className="w-full" controlsList="nodownload noplaybackrate" onContextMenu={e => e.preventDefault()} />
+                  <audio src={proxyUrl(viewerFile.id)} controls autoPlay preload="auto" className="w-full" controlsList="nodownload noplaybackrate" onContextMenu={e => e.preventDefault()} />
                 </div>
               </div>
             )}
