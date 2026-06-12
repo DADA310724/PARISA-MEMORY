@@ -1,0 +1,19 @@
+modules = ["nodejs-20", "web", "bash"]
+[agent]
+expertMode = true
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 23236
+externalPort = 80
+
+[nix]
+channel = "stable-25_05"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "node --enable-source-maps artifacts/api-server/dist/index.mjs & PORT=23236 BASE_PATH=/ pnpm --filter @workspace/parisa-portal run serve"]
+build = ["bash", "-c", "pnpm --filter @workspace/api-server run build && PORT=23236 BASE_PATH=/ pnpm --filter @workspace/parisa-portal run build"]

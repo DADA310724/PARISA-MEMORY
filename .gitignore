@@ -1,0 +1,64 @@
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+
+# compiled output
+# dist — NOT ignored; api-server/dist must be pushed to GitHub for production routes
+tmp
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
+
+# dependencies
+node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System Files
+.DS_Store
+Thumbs.db
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+# Replit
+.cache/
+.local/
+parisa-secrets.env
+artifacts/api-server/.oauth_token.json
+artifacts/api-server/
+**/.oauth_token.json
+**/secrets/
+
+# Build output (never push built files to GitHub)
+artifacts/parisa-portal/dist/
+dist/
+
+# Environment files (secrets must never be committed)
+.env
+.env.local
+.env.production
+*.env
