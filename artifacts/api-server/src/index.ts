@@ -1,0 +1,42 @@
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
+import { createServer } from "http";
+import { configRouter } from "./routes/config.js";
+import { driveRouter } from "./routes/drive.js";
+import { aiRouter } from "./routes/ai.js";
+import { telegramRouter } from "./routes/telegram.js";
+import { oauthRouter } from "./routes/oauth.js";
+
+const app = express();
+const PORT = process.env.PORT ? Number(process.env.PORT) : 8080;
+
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  if (req.method === "OPTIONS") { res.sendStatus(204); return; }
+  next();
+});
+
+app.use("/api/config", configRouter);
+app.use("/api/drive", driveRouter);
+app.use("/api/ai", aiRouter);
+app.use("/api/telegram", telegramRouter);
+app.use("/api/oauth", oauthRouter);
+
+app.get("/api/healthz", (_req: Request, res: Response) => {
+  res.json({ status: "ok" });
+});
+
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(err);
+  res.status(500).json({ error: err.message ?? "Internal server error" });
+});
+
+const server = createServer(app);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`API server running on port ${PORT}`);
+});
