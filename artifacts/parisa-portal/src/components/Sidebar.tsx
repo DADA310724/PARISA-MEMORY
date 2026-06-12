@@ -45,8 +45,8 @@ export function Sidebar({ onClose }: SidebarProps) {
       className="h-full w-72 shrink-0 flex flex-col"
       data-testid="sidebar"
       style={{
-        background: "linear-gradient(180deg, rgba(0,26,32,0.98) 0%, rgba(0,18,26,0.99) 100%)",
-        borderRight: "1px solid rgba(0,212,170,0.18)",
+        background: "linear-gradient(180deg, rgba(0,40,52,0.97) 0%, rgba(0,28,42,0.99) 100%)",
+        borderRight: "1px solid rgba(0,212,170,0.22)",
         backdropFilter: "blur(24px)",
       }}
     >
@@ -213,15 +213,22 @@ export function Sidebar({ onClose }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ borderTop: "1px solid rgba(0,212,170,0.1)" }}>
         <a href="https://t.me/DADA310724" target="_blank" rel="noopener noreferrer"
-          className="px-4 py-2.5 flex items-center gap-2.5 hover:bg-white/5 transition-all"
+          className="px-4 py-2.5 flex items-center justify-between hover:bg-white/5 transition-all"
         >
-          <div className="w-7 h-7 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(33,150,243,0.2)" }}>
-            <SiTelegram className="w-3.5 h-3.5 text-blue-400" />
+          <p className="text-[10px] text-white/35 font-medium tracking-wider uppercase">Development by DADA</p>
+          <div
+            className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{
+              background: "rgba(33,150,243,0.08)",
+              border: "1px solid rgba(33,150,243,0.25)",
+              backdropFilter: "blur(12px)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px rgba(33,150,243,0.15)",
+            }}
+          >
+            <SiTelegram className="w-3.5 h-3.5" style={{ color: "rgba(33,186,252,0.8)" }} />
           </div>
-          <p className="text-[10px] text-white/30 font-medium tracking-wider uppercase">Development by DADA</p>
         </a>
         <div className="px-4 pb-3 flex items-center justify-between">
           <span className="text-[9px] text-white/20 font-mono tracking-widest uppercase">PARISA PORTAL</span>

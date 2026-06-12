@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useLocation } from "wouter";
 import { Sidebar } from "./Sidebar";
 
@@ -116,15 +116,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex-1 min-w-0">{children}</div>
       </main>
 
-      {open && (
-        <button
-          onClick={() => setOpen(false)}
-          className="lg:hidden fixed top-3 right-3 z-[60] w-9 h-9 rounded-full bg-black/80 border border-white/10 flex items-center justify-center text-white"
-          aria-label="Close menu"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      )}
     </div>
   );
 }

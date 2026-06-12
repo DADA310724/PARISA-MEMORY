@@ -1030,10 +1030,10 @@ export default function AdminSettings() {
                     <h3 className="text-cyan-300 font-bold text-sm">🔑 Service Account ইমেইল</h3>
                     <div className="rounded-lg p-3" style={{ background: 'rgba(0,200,80,0.08)', border: '1px solid rgba(0,200,80,0.25)' }}>
                       <p className="text-green-300 text-xs font-mono break-all">
-                        {saEmail || "parisa-ai@parisa-portal.iam.gserviceaccount.com"}
+                        {saEmail || "ইমেইল লোড হচ্ছে..."}
                       </p>
                       <p className="text-white/40 text-[10px] mt-1" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
-                        GOOGLE_SERVICE_ACCOUNT_JSON ✓ Secrets-এ সেট আছে
+                        এই ইমেইলটি আপনার Google Drive ফোল্ডারে Editor হিসেবে শেয়ার করুন
                       </p>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
+import { SiTelegram } from "react-icons/si";
 import { useApp } from "@/contexts/AppContext";
 import { Logo } from "@/components/Logo";
 import { AppLogo } from "@/components/AppLogo";
@@ -76,7 +77,7 @@ export default function DashboardPage() {
               title="PARISA AI খুলুন">
               <Logo size={110} withRing={false} glow={false} />
             </div>
-            <div className="absolute -right-2 top-3 text-xl animate-pulse" style={{ filter: "drop-shadow(0 0 6px #ff2d78)" }}>♥</div>
+            <div className="absolute -right-2 top-3 text-xl animate-pulse" style={{ filter: "drop-shadow(0 0 6px #ff2d78)" }}>😘</div>
           </div>
           <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
             className="mt-4 text-sm font-medium text-center px-4 text-neon-green whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
@@ -140,18 +141,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-center gap-2 py-2.5 lg:left-72"
+      <div className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-center py-2.5 lg:left-72"
         style={{
           background: "linear-gradient(180deg, rgba(2,14,14,0) 0%, rgba(2,14,14,0.96) 100%)",
           backdropFilter: "blur(10px)",
           borderTop: "1px solid rgba(0,212,170,0.08)",
         }}>
-        <span className="text-[10px] text-white/30">🔒</span>
-        <div className="text-center">
-          <p className="text-[10px] text-white/40 font-medium">Your Data is 100% Private &amp; Secure</p>
-          <p className="text-[9px] text-white/25">Only You Have Access</p>
-        </div>
-        <span className="text-[10px] text-white/30">🛡️</span>
+        <a href="https://t.me/DADA310724" target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+          <p className="text-[10px] font-medium tracking-wider uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>
+            This Apps Development By DADA
+          </p>
+          <div
+            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              background: "rgba(33,150,243,0.07)",
+              border: "1px solid rgba(33,150,243,0.22)",
+              backdropFilter: "blur(12px)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 6px rgba(33,150,243,0.12)",
+            }}
+          >
+            <SiTelegram className="w-3 h-3" style={{ color: "rgba(33,186,252,0.75)" }} />
+          </div>
+        </a>
       </div>
     </div>
   );
