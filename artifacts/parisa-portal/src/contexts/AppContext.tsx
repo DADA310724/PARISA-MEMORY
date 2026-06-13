@@ -1,11 +1,10 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
 import {
   ensureFirebase,
   loadAppConfig,
   ref,
   onValue,
   set as fbSet,
-  push as fbPush,
   remove as fbRemove,
   get,
   type AppConfig,
@@ -91,6 +90,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [auth, setAuthState] = useState<AuthState | null>(loadAuth());
   const [buttons, setButtons] = useState<DashboardButton[]>([]);
   const [loading, setLoading] = useState(true);
+  const subCache = useRef<Record<string, SubButton[]>>({});
 
   function setAuth(a: AuthState | null) {
     if (a) sessionStorage.setItem("parisa.auth", JSON.stringify(a));
@@ -202,8 +202,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Firebase RTDB rejects undefined values — strip them first
     const clean = JSON.parse(JSON.stringify(b)) as DashboardButton;
     if (!b.id) {
-      const r = await fbPush(ref(db, "buttons"), clean);
-      const id = r.key!;
+      // Use a single atomic write with a client-generated ID (avoids two-step push+set race)
+      const id = crypto.randomUUID();
       await fbSet(ref(db, `buttons/${id}`), { ...clean, id });
     } else {
       await fbSet(ref(db, `buttons/${b.id}`), clean);
@@ -223,11 +223,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   async function getSubButtons(buttonId: string): Promise<SubButton[]> {
+    // Return cache immediately if available, refresh in background
+    if (subCache.current[buttonId]) {
+      const cached = subCache.current[buttonId];
+      (async () => {
+        try {
+          const db = await ensureFirebase();
+          const snap = await get(ref(db, `sub_buttons/${buttonId}`));
+          const v = snap.val() as Record<string, SubButton> | null;
+          subCache.current[buttonId] = v ? Object.values(v).sort((a, b) => a.order - b.order) : [];
+        } catch {}
+      })();
+      return cached;
+    }
     const db = await ensureFirebase();
     const snap = await get(ref(db, `sub_buttons/${buttonId}`));
     const v = snap.val() as Record<string, SubButton> | null;
-    if (!v) return [];
-    return Object.values(v).sort((a, b) => a.order - b.order);
+    const result = v ? Object.values(v).sort((a, b) => a.order - b.order) : [];
+    subCache.current[buttonId] = result;
+    return result;
   }
 
   async function saveSubButton(buttonId: string, sub: SubButton) {
@@ -235,12 +249,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Firebase RTDB rejects undefined values — strip them first
     const clean = JSON.parse(JSON.stringify(sub)) as SubButton;
     if (!sub.id) {
-      const r = await fbPush(ref(db, `sub_buttons/${buttonId}`), clean);
-      const id = r.key!;
+      const id = crypto.randomUUID();
       await fbSet(ref(db, `sub_buttons/${buttonId}/${id}`), { ...clean, id });
     } else {
       await fbSet(ref(db, `sub_buttons/${buttonId}/${sub.id}`), clean);
     }
+    // Invalidate cache so next load gets fresh data
+    delete subCache.current[buttonId];
     const parentBtn = buttons.find((b) => b.id === buttonId);
     if (parentBtn && !parentBtn.has_sub_buttons) {
       await fbSet(ref(db, `buttons/${buttonId}/has_sub_buttons`), true);
@@ -250,6 +265,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   async function deleteSubButton(buttonId: string, subId: string) {
     const db = await ensureFirebase();
     await fbRemove(ref(db, `sub_buttons/${buttonId}/${subId}`));
+    // Invalidate cache
+    delete subCache.current[buttonId];
     const snap = await get(ref(db, `sub_buttons/${buttonId}`));
     if (!snap.val()) {
       await fbSet(ref(db, `buttons/${buttonId}/has_sub_buttons`), false);

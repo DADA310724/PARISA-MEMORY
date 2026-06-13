@@ -6,6 +6,7 @@ import { listFolder, type DriveFile, isFolder, isImage, isVideo, isAudio, isHtml
 import { useApp } from "../contexts/AppContext";
 import { ensureFirebase, ref, get, set } from "../lib/firebase";
 import { api } from "../lib/api";
+import { PdfViewer } from "../components/PdfViewer";
 
 interface FolderLock { password: string; hint?: string; }
 
@@ -43,8 +44,6 @@ export default function FolderView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const touchStartX = useRef(0);
-  const [pdfPage, setPdfPage] = useState(1);
-  const [pdfPageInput, setPdfPageInput] = useState("1");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const imageFiles = files.filter(isImage);
@@ -521,42 +520,13 @@ export default function FolderView() {
               </div>
             )}
 
-            {/* PDF — Google Docs embedded viewer + page number search */}
+            {/* PDF — custom PDF.js viewer (no download, full text search) */}
             {viewerType === 'pdf' && (
-              <div className="flex-1 overflow-hidden flex flex-col" style={{ background: '#1a1a2e' }}>
-                {/* Page search toolbar */}
-                <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0" style={{ background: 'rgba(0,0,0,0.5)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                  <span className="text-white/50 text-xs flex-shrink-0" style={{ fontFamily: "'Hind Siliguri',sans-serif" }}>পেজ নম্বর</span>
-                  <input
-                    type="number" min={1} value={pdfPageInput}
-                    onChange={e => setPdfPageInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { const n = parseInt(pdfPageInput); if (n >= 1) { setPdfPage(n); } } }}
-                    className="w-16 rounded-lg px-2 py-1 text-white text-xs text-center focus:outline-none font-mono"
-                    style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)' }}
-                  />
-                  <button
-                    onClick={() => { const n = parseInt(pdfPageInput); if (n >= 1) setPdfPage(n); }}
-                    className="px-3 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0"
-                    style={{ background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.3)', color: '#00e5ff' }}>
-                    যাও →
-                  </button>
-                  {pdfPage > 1 && (
-                    <button onClick={() => { setPdfPage(1); setPdfPageInput("1"); }}
-                      className="px-2 py-1 rounded-lg text-[10px] text-white/40 flex-shrink-0"
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      শুরুতে
-                    </button>
-                  )}
-                  <span className="text-white/25 text-[10px] ml-auto flex-shrink-0">PDF পেজে যান</span>
-                </div>
-                <iframe
-                  key={pdfPage}
-                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(window.location.origin + proxyUrl(viewerFile.id))}&embedded=true${pdfPage > 1 ? `&pg=PA${pdfPage}` : ''}`}
-                  className="w-full flex-1 border-0"
-                  title={viewerFile.name}
-                  allow="autoplay"
-                />
-              </div>
+              <PdfViewer
+                url={proxyUrl(viewerFile.id)}
+                title={viewerFile.name}
+                onClose={() => setViewerOpen(false)}
+              />
             )}
 
             {/* HTML / Text / Generic — iframe */}
