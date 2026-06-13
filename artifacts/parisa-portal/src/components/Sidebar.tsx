@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
-import { Settings, LogOut, Home, ChevronRight, MessageSquare } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, LogOut, Home, ChevronRight, MessageSquare, Download } from "lucide-react";
 import { SiTelegram } from "react-icons/si";
 import { useApp } from "@/contexts/AppContext";
 import { AppLogo } from "@/components/AppLogo";
@@ -12,6 +13,25 @@ interface SidebarProps {
 export function Sidebar({ onClose }: SidebarProps) {
   const { auth, setAuth, buttons } = useApp();
   const [location, setLocation] = useLocation();
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsInstalled(true);
+    }
+    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => { setIsInstalled(true); setInstallPrompt(null); });
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  async function handleInstall() {
+    if (!installPrompt) return;
+    (installPrompt as any).prompt();
+    const { outcome } = await (installPrompt as any).userChoice;
+    if (outcome === "accepted") { setIsInstalled(true); setInstallPrompt(null); }
+  }
 
   function go(path: string) {
     setLocation(path);
@@ -162,6 +182,35 @@ export function Sidebar({ onClose }: SidebarProps) {
             );
           })}
         </div>
+
+        {/* Install App — shown only when not yet installed and prompt is available */}
+        {!isInstalled && installPrompt && (
+          <div className="mt-3">
+            <p className="px-2 py-1.5 text-[10px] uppercase tracking-[0.22em] text-white/30 font-bold mb-1">APP</p>
+            <button
+              onClick={handleInstall}
+              className="w-full flex items-center gap-3 px-2 py-2 rounded-2xl transition-all"
+              style={{
+                background: "linear-gradient(135deg, rgba(13,148,136,0.12), rgba(8,145,178,0.12))",
+                border: "1px solid hsl(var(--primary) / 0.35)",
+              }}
+            >
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "linear-gradient(135deg,#0d9488,#0891b2)", boxShadow: "0 0 12px rgba(13,148,136,0.5)" }}>
+                <Download className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: "hsl(var(--primary))" }}>
+                  Install App
+                </p>
+                <p className="text-[10px] text-white/40 truncate" style={{ fontFamily: "'Hind Siliguri',sans-serif" }}>
+                  হোম স্ক্রিনে যোগ করুন
+                </p>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-white/20 shrink-0" />
+            </button>
+          </div>
+        )}
 
         {/* Admin: only Settings */}
         {auth?.role === "admin" && (
