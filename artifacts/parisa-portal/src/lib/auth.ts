@@ -27,6 +27,8 @@ export function saveAuth(s: AuthState) {
 
 export function clearAuth() {
   sessionStorage.removeItem(STORAGE_KEY);
+  // Clear AI chat sessions so they don't leak to next user on shared device
+  try { localStorage.removeItem("parisa_sessions"); } catch {}
 }
 
 function todayDDMMYYYY(): string {

@@ -239,7 +239,8 @@ function TypewriterMsg({ text, onDone }: TypewriterMsgProps) {
       idx.current++;
     }, 18);
     return () => clearInterval(interval);
-  }, [text]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, onDone]);
   return <>{displayed}</>;
 }
 
