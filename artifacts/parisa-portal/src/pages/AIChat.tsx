@@ -1004,9 +1004,9 @@ export default function AIChatPage() {
               <div className="parisa-smoke s4" />
               <img src={PROFILE_LOGO} alt="পারিসা" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: .22, mixBlendMode: "screen", filter: "brightness(1.3) saturate(108%) contrast(.92)" }} />
             </div>
-            <div>
-              <p className="parisa-tagline" style={{ color: "rgba(216,243,251,.75)", fontSize: 14, fontFamily: "'Hind Siliguri',sans-serif" }}>মায়া কখনো কাটানো যায় না এটা মৃত্যুর আগ পর্যন্ত থেকে যায়... 😘😘</p>
-              <p className="parisa-tagline t2" style={{ color: "rgba(216,243,251,.6)", fontSize: 13, fontFamily: "'Hind Siliguri',sans-serif" }}>এটা মৃত্যুর আগ পর্যন্ত থেকে যায়...</p>
+            <div style={{ textAlign: "center" }}>
+              <p className="parisa-tagline" style={{ color: "rgba(216,243,251,.75)", fontSize: 14, fontFamily: "'Hind Siliguri',sans-serif", margin: 0 }}>মায়া কখনোই কাটানো যায় না..</p>
+              <p className="parisa-tagline t2" style={{ color: "rgba(216,243,251,.75)", fontSize: 14, fontFamily: "'Hind Siliguri',sans-serif", margin: 0 }}>এটা মৃত্যুর আগ পর্যন্ত থেকে যায়...😘😘</p>
             </div>
             <h1 className="parisa-brand-title" style={{ fontSize: 26, letterSpacing: 8, margin: 0 }}>WELCOME</h1>
             <p style={{ color: "rgba(174,226,236,.75)", fontSize: 14, margin: 0, fontFamily: "'Hind Siliguri',sans-serif" }}>
