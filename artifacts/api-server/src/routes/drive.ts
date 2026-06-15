@@ -335,6 +335,39 @@ driveRouter.get("/find-file", async (req: Request, res: Response) => {
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 
+driveRouter.get("/list-screenshots", async (req: Request, res: Response) => {
+  const rootFolderId = req.query.folderId as string | undefined;
+  if (!rootFolderId) { res.status(400).json({ error: "folderId required" }); return; }
+  try {
+    const token = await getAccessToken();
+    const subUrl = new URL("https://www.googleapis.com/drive/v3/files");
+    subUrl.searchParams.set("q", `'${rootFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+    subUrl.searchParams.set("fields", "files(id,name)");
+    subUrl.searchParams.set("pageSize", "20");
+    const subResp = await fetch(subUrl.toString(), { headers: { Authorization: `Bearer ${token}` } });
+    if (!subResp.ok) { res.status(subResp.status).json({ error: await subResp.text() }); return; }
+    const subData = await subResp.json() as { files: Array<{ id: string; name: string }> };
+
+    const result: Record<string, Array<{ id: string; name: string; modifiedTime: string }>> = {};
+    await Promise.all(
+      subData.files.map(async (folder) => {
+        const fileUrl = new URL("https://www.googleapis.com/drive/v3/files");
+        fileUrl.searchParams.set("q", `'${folder.id}' in parents and mimeType contains 'image/' and trashed=false`);
+        fileUrl.searchParams.set("fields", "files(id,name,modifiedTime)");
+        fileUrl.searchParams.set("orderBy", "modifiedTime desc");
+        fileUrl.searchParams.set("pageSize", "200");
+        const fileResp = await fetch(fileUrl.toString(), { headers: { Authorization: `Bearer ${token}` } });
+        if (!fileResp.ok) return;
+        const fileData = await fileResp.json() as { files: Array<{ id: string; name: string; modifiedTime: string }> };
+        result[folder.name] = fileData.files;
+      })
+    );
+    res.json({ subfolders: result });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 driveRouter.post("/create-folder", async (req: Request, res: Response) => {
   const { name, parentId } = req.body as { name: string; parentId: string };
   if (!name || !parentId) { res.status(400).json({ error: "name and parentId required" }); return; }

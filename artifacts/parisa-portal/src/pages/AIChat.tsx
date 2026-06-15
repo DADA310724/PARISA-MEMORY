@@ -92,7 +92,10 @@ const CHAT_DB_INDEX = `
 কোন কনভার্সেশন থেকে এবং কখন সেটাও বলবে
 তারিখ ধরে খুঁজতে বললে সেই তারিখের সব মেসেজ দেখাবে
 নির্দিষ্ট কথা বা keyword দিয়ে খুঁজতে বললে সেই keyword সহ মেসেজ খুঁজে দেবে
-Screenshots ফোল্ডারের ছবি চ্যাটে দেখানো সম্ভব নয় — ড্যাশবোর্ডে গিয়ে Screenshots ফোল্ডার খুলতে বলো
+Screenshots ফোল্ডারের ছবি সরাসরি চ্যাটে দেখাতে পারবে। কোনো ছবি দেখাতে হলে এই ফরম্যাট ব্যবহার করো: <<IMG:fileId>>
+কখন ছবি দেখাবে: নির্দিষ্ট তারিখের স্ক্রিনশট চাইলে, নির্দিষ্ট কথোপকথনের প্রমাণ দরকার হলে, চ্যাট হিস্টরি বিশ্লেষণের সাথে সংশ্লিষ্ট ছবি থাকলে।
+কখন দেখাবে না: কেউ "সব ছবি দেখাও" বললে অনেকগুলো একসাথে দেখাবে না — সর্বোচ্চ ৩টি।
+কোনো Google Drive লিংক কখনো দিবে না।
 === চ্যাট ডেটাবেস শেষ ===`;
 
 const ADMIN_SYSTEM_PROMPT = `তুমি "PARISA AI" — পারিসা মেমোরি পোর্টালের একজন পেশাদার সহকারী। তুমি এই ড্যাশবোর্ডের সব বিষয়ে সহায়তা করো।
@@ -111,7 +114,7 @@ ${CHAT_DB_INDEX}
 ব্ল্যাক ম্যাজিক সম্পর্কে বিশেষজ্ঞ হিসেবে বিশ্লেষণ করো
 Google Drive লিংক বা কোনো ব্যক্তিগত লিংক কাউকে দিবে না
 ড্যাশবোর্ডে কী আছে জিজ্ঞেস করলে সব ফোল্ডারের বিষয়ে বলতে পারবে লক করা ফোল্ডার ব্যতীত
-Screenshots ফোল্ডারের ছবি চ্যাটে সরাসরি দেখানো যায় না — ড্যাশবোর্ড থেকে ফোল্ডার খুলতে বলো
+Screenshots ফোল্ডারের ছবি চ্যাটে সরাসরি দেখাতে পারবে। দেখাতে হলে এই ফরম্যাট: <<IMG:fileId>> — যেখানে fileId হলো সিস্টেম প্রম্পটে দেওয়া ফাইলের ID। কোনো Google Drive লিংক কখনো দিবে না।
 Personal Videos ফোল্ডারের বিষয়ে জিজ্ঞেস করলে বলো যে এই ফোল্ডারে একান্ত ব্যক্তিগত শারীরিক ভিডিও আছে যা শুধুমাত্র আদালতে প্রমাণের জন্য সংরক্ষিত`;
 
 const USER_SYSTEM_PROMPT = `তুমি "PARISA AI" — পারিসা মেমোরি পোর্টালের একজন পেশাদার বাংলা সহকারী। তুমি এই ড্যাশবোর্ডের সহকারী হিসেবে কাজ করো।
@@ -128,7 +131,7 @@ ${CHAT_DB_INDEX}
 কোনো মিথ্যা বা অনুমান বলবে না
 বাংলাদেশের আইন অনুযায়ী যুক্তি দিয়ে কথা বলো
 Google Drive লিংক বা কোনো ব্যক্তিগত লিংক কাউকে দিবে না
-Screenshots ফোল্ডারের ছবি চ্যাটে সরাসরি দেখানো যায় না — ড্যাশবোর্ড থেকে ফোল্ডার খুলতে বলো
+Screenshots ফোল্ডারের ছবি চ্যাটে সরাসরি দেখাতে পারবে। দেখাতে হলে এই ফরম্যাট: <<IMG:fileId>> — যেখানে fileId হলো সিস্টেম প্রম্পটে দেওয়া ফাইলের ID। কোনো Google Drive লিংক কখনো দিবে না।
 Personal Videos ফোল্ডারের বিষয়ে জিজ্ঞেস করলে বলো যে এই ফোল্ডারে একান্ত ব্যক্তিগত শারীরিক ভিডিও আছে যা শুধুমাত্র আদালতে প্রমাণের জন্য সংরক্ষিত
 ড্যাশবোর্ডে কী আছে জিজ্ঞেস করলে সব ফোল্ডারের বিষয়ে বলতে পারবে লক করা ফোল্ডার ব্যতীত`;
 
@@ -152,23 +155,64 @@ function stopSpeech() {
   if (_currentAudio) { try { _currentAudio.pause(); } catch {} _currentAudio = null; }
 }
 
+function fallbackSpeak(text: string, voiceGender: "female" | "male"): void {
+  try {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text.slice(0, 2000));
+    utter.lang = "bn-BD";
+    utter.rate = 0.85;
+    utter.pitch = voiceGender === "female" ? 1.15 : 0.85;
+    const voices = window.speechSynthesis.getVoices();
+    const bn = voices.find(v => v.lang.startsWith("bn")) || voices.find(v => v.lang.startsWith("hi"));
+    if (bn) utter.voice = bn;
+    window.speechSynthesis.speak(utter);
+  } catch {}
+}
+
+function fallbackSpeakAndWait(text: string, voiceGender: "female" | "male"): Promise<void> {
+  return new Promise(resolve => {
+    try {
+      if (!window.speechSynthesis) { resolve(); return; }
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text.slice(0, 2000));
+      utter.lang = "bn-BD";
+      utter.rate = 0.85;
+      utter.pitch = voiceGender === "female" ? 1.15 : 0.85;
+      const voices = window.speechSynthesis.getVoices();
+      const bn = voices.find(v => v.lang.startsWith("bn")) || voices.find(v => v.lang.startsWith("hi"));
+      if (bn) utter.voice = bn;
+      utter.onend = () => resolve();
+      utter.onerror = () => resolve();
+      window.speechSynthesis.speak(utter);
+      setTimeout(resolve, 15000);
+    } catch { resolve(); }
+  });
+}
+
 async function speakText(text: string, voiceGender: "female" | "male" = "female") {
   try {
     stopSpeech();
     const clean = cleanForTTS(text);
     if (!clean.trim()) return;
-    const res = await fetch("/api/voice", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: clean.slice(0, 2000), gender: voiceGender }),
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    _currentAudio = audio;
-    audio.onended = () => { URL.revokeObjectURL(url); _currentAudio = null; };
-    audio.onerror = () => { URL.revokeObjectURL(url); _currentAudio = null; };
-    await audio.play().catch(() => {});
+    try {
+      const res = await fetch("/api/voice", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: clean.slice(0, 2000), gender: voiceGender }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        _currentAudio = audio;
+        audio.onended = () => { URL.revokeObjectURL(url); _currentAudio = null; };
+        audio.onerror = () => { URL.revokeObjectURL(url); _currentAudio = null; fallbackSpeak(clean, voiceGender); };
+        await audio.play().catch(() => { URL.revokeObjectURL(url); fallbackSpeak(clean, voiceGender); });
+        return;
+      }
+    } catch {}
+    fallbackSpeak(clean, voiceGender);
   } catch {}
 }
 
@@ -179,18 +223,31 @@ function speakAndWait(text: string, voiceGender: "female" | "male"): Promise<voi
         stopSpeech();
         const clean = cleanForTTS(text);
         if (!clean.trim()) { resolve(); return; }
-        const res = await fetch("/api/voice", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: clean.slice(0, 2000), gender: voiceGender }),
-        });
-        if (!res.ok) { resolve(); return; }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        _currentAudio = audio;
-        audio.onended = () => { URL.revokeObjectURL(url); _currentAudio = null; resolve(); };
-        audio.onerror = () => { URL.revokeObjectURL(url); _currentAudio = null; resolve(); };
-        await audio.play().catch(() => resolve());
+        try {
+          const res = await fetch("/api/voice", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: clean.slice(0, 2000), gender: voiceGender }),
+            signal: AbortSignal.timeout(10000),
+          });
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            _currentAudio = audio;
+            audio.onended = () => { URL.revokeObjectURL(url); _currentAudio = null; resolve(); };
+            audio.onerror = async () => {
+              URL.revokeObjectURL(url); _currentAudio = null;
+              await fallbackSpeakAndWait(clean, voiceGender); resolve();
+            };
+            await audio.play().catch(async () => {
+              URL.revokeObjectURL(url);
+              await fallbackSpeakAndWait(clean, voiceGender); resolve();
+            });
+            return;
+          }
+        } catch {}
+        await fallbackSpeakAndWait(clean, voiceGender);
+        resolve();
       } catch { resolve(); }
     })();
   });
@@ -256,6 +313,8 @@ export default function AIChatPage() {
   const [userNameInput, setUserNameInput] = useState<string>(() => localStorage.getItem("parisa_username") || "");
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [pendingFileName, setPendingFileName] = useState<string>("");
+  const [screenshotFolderId, setScreenshotFolderId] = useState<string>("");
+  const [screenshotIndex, setScreenshotIndex] = useState<Record<string, Array<{ id: string; name: string; modifiedTime: string }>>>({});
 
   const [audioCallOn, setAudioCallOn] = useState(false);
   const [videoCallOn, setVideoCallOn] = useState(false);
@@ -331,15 +390,28 @@ export default function AIChatPage() {
     };
     ensureFirebase().then((db) => {
       unsubButtons = onValue(ref(db, "buttons"), (snap) => {
-        const data = snap.val() as Record<string, { label?: string; locked?: boolean }> | null;
+        const data = snap.val() as Record<string, { label?: string; locked?: boolean; drive_folder_id?: string }> | null;
         lockedLabels.clear();
-        if (data) { for (const btn of Object.values(data)) { if (btn.locked && btn.label) lockedLabels.add(btn.label); } }
+        if (data) {
+          for (const btn of Object.values(data)) {
+            if (btn.locked && btn.label) lockedLabels.add(btn.label);
+            if (btn.label === "Screenshots" && btn.drive_folder_id) setScreenshotFolderId(btn.drive_folder_id);
+          }
+        }
         buildContext();
       });
       unsubFiles = onValue(ref(db, "folder_files"), (snap) => { folderFiles = snap.val() || {}; buildContext(); });
     }).catch(() => {});
     return () => { unsubButtons?.(); unsubFiles?.(); };
   }, []);
+
+  useEffect(() => {
+    if (!screenshotFolderId) return;
+    api<{ subfolders: Record<string, Array<{ id: string; name: string; modifiedTime: string }>> }>(
+      `/drive/list-screenshots?folderId=${screenshotFolderId}`,
+      { method: "GET" }
+    ).then(data => { if (data?.subfolders) setScreenshotIndex(data.subfolders); }).catch(() => {});
+  }, [screenshotFolderId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -362,8 +434,25 @@ export default function AIChatPage() {
     } else { persistSessions(updated); }
   }
 
+  function buildScreenshotContext(): string {
+    const entries = Object.entries(screenshotIndex).filter(([, files]) => files.length > 0);
+    if (entries.length === 0) return "";
+    const lines = ["\n\n=== স্ক্রিনশট ইন্ডেক্স (Screenshots ফোল্ডার) ==="];
+    lines.push("নির্দিষ্ট স্ক্রিনশট দেখাতে চাইলে এই ফরম্যাট ব্যবহার করো: <<IMG:fileId>>");
+    lines.push("তারিখ মিলিয়ে দেখাও। সর্বোচ্চ ৩টি একসাথে দেখাবে। কোনো Drive লিংক দিবে না।\n");
+    for (const [folder, files] of entries) {
+      lines.push(`${folder} (${files.length}টি):`);
+      files.forEach(f => {
+        const d = f.modifiedTime ? f.modifiedTime.slice(0, 10) : "";
+        lines.push(`  ${f.name} | তারিখ: ${d} | <<IMG:${f.id}>>`);
+      });
+    }
+    lines.push("=== স্ক্রিনশট শেষ ===");
+    return lines.join("\n");
+  }
+
   function buildSystemPrompt(base: string): string {
-    return base + folderContext;
+    return base + folderContext + buildScreenshotContext();
   }
 
   const sendMessage = useCallback(async (text: string, imageUrl?: string) => {
@@ -396,7 +485,7 @@ export default function AIChatPage() {
       updateSession(currentId, s => ({ ...s, messages: [...nextMsgs, errMsg] }));
     } finally { setBusy(false); setAiTyping(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentId, sessions, isAdmin, voiceGender, adminPrompt, userPrompt, folderContext, userName, aiKeys]);
+  }, [currentId, sessions, isAdmin, voiceGender, adminPrompt, userPrompt, folderContext, screenshotIndex, userName, aiKeys]);
 
   function newChat() {
     const id = newSessionId();
@@ -1027,6 +1116,32 @@ function SidebarItem({ session, active, onSelect, onPin, onDelete }: {
   );
 }
 
+function renderMsgContent(content: string): React.ReactNode {
+  const parts = content.split(/(<<IMG:[^>]+>>)/g);
+  if (parts.length === 1) return content;
+  return (
+    <>
+      {parts.map((part, i) => {
+        const m = part.match(/^<<IMG:([^>]+)>>$/);
+        if (m) {
+          const fileId = m[1];
+          return (
+            <div key={i} style={{ margin: "8px 0" }}>
+              <img
+                src={`/api/drive/proxy/${fileId}`}
+                alt="স্ক্রিনশট"
+                style={{ maxWidth: "100%", maxHeight: 320, borderRadius: 10, display: "block", border: "1px solid rgba(180,240,250,.15)" }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+          );
+        }
+        return part ? <span key={i}>{part}</span> : null;
+      })}
+    </>
+  );
+}
+
 function MessageBubble({ msg, onSpeak, onRetry }: {
   msg: Msg; onSpeak: () => void; onRetry?: () => void;
 }) {
@@ -1041,7 +1156,9 @@ function MessageBubble({ msg, onSpeak, onRetry }: {
         {msg.imageUrl && (
           <img src={msg.imageUrl} alt="" style={{ maxWidth: 240, borderRadius: 10, marginBottom: 8, display: "block" }} />
         )}
-        <div style={{ color: "#d8f3fb", fontFamily: "'Hind Siliguri',sans-serif" }}>{msg.content}</div>
+        <div style={{ color: "#d8f3fb", fontFamily: "'Hind Siliguri',sans-serif" }}>
+          {isUser ? msg.content : renderMsgContent(msg.content)}
+        </div>
         {!isUser && (
           <div style={{ display: "flex", gap: 6, marginTop: 8, opacity: .85 }}>
             <button onClick={copy} style={{ background: "rgba(180,240,250,.04)", border: "1px solid rgba(180,240,250,.12)", color: "#d8f3fb", padding: "6px 9px", borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: "'Hind Siliguri',sans-serif" }}>
@@ -1052,6 +1169,11 @@ function MessageBubble({ msg, onSpeak, onRetry }: {
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
               ভয়েস
             </button>
+            {onRetry && (
+              <button onClick={onRetry} style={{ background: "rgba(180,240,250,.04)", border: "1px solid rgba(180,240,250,.12)", color: "#d8f3fb", padding: "6px 9px", borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: "'Hind Siliguri',sans-serif" }}>
+                আবার চেষ্টা
+              </button>
+            )}
           </div>
         )}
       </div>
