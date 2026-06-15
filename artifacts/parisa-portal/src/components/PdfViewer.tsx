@@ -84,7 +84,7 @@ export function PdfViewer({ url, title, onClose }: Props) {
     canvas.style.height = `${logicalH}px`;
 
     try {
-      renderTaskRef.current = page.render({ canvasContext: ctx, viewport });
+      renderTaskRef.current = page.render({ canvasContext: ctx, viewport, canvas });
       await renderTaskRef.current.promise;
     } catch (e: unknown) {
       if ((e as { name?: string })?.name !== "RenderingCancelledException") console.error("Render error", e);
