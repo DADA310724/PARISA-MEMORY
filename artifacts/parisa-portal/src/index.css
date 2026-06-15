@@ -346,4 +346,44 @@
     0%, 100% { box-shadow: 0 0 12px rgba(45,212,191,0.3); opacity: 0.7; }
     50%       { box-shadow: 0 0 28px rgba(45,212,191,0.6), 0 0 50px rgba(168,85,247,0.2); opacity: 1; }
   }
+
+  /* ── Mic Visualizer rings (audio call) ─────────────────────── */
+  .mic-ring {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .mic-ring-listen {
+    border: 2px solid rgba(34,211,238,0.55);
+    animation: mic-pulse-listen 1.4s ease-out infinite;
+  }
+  .mic-ring-listen:nth-child(2) { animation-delay: 0.46s; }
+  .mic-ring-listen:nth-child(3) { animation-delay: 0.92s; }
+
+  .mic-ring-speak {
+    border: 2px solid rgba(74,222,128,0.55);
+    animation: mic-pulse-speak 0.9s ease-out infinite;
+  }
+  .mic-ring-speak:nth-child(2) { animation-delay: 0.3s; }
+  .mic-ring-speak:nth-child(3) { animation-delay: 0.6s; }
+
+  .mic-ring-think {
+    border: 2px solid rgba(251,191,36,0.4);
+    animation: mic-pulse-think 2s ease-in-out infinite;
+  }
+  .mic-ring-think:nth-child(2) { animation-delay: 0.66s; }
+  .mic-ring-think:nth-child(3) { animation-delay: 1.32s; }
+
+  @keyframes mic-pulse-listen {
+    0%   { transform: scale(1);    opacity: 0.8; }
+    100% { transform: scale(2.2);  opacity: 0; }
+  }
+  @keyframes mic-pulse-speak {
+    0%   { transform: scale(1);    opacity: 0.9; }
+    100% { transform: scale(1.9);  opacity: 0; }
+  }
+  @keyframes mic-pulse-think {
+    0%, 100% { transform: scale(1);    opacity: 0.5; }
+    50%      { transform: scale(1.5);  opacity: 0.15; }
+  }
 }

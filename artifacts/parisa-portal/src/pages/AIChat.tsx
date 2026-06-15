@@ -699,29 +699,49 @@ export default function AIChatPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[90] flex flex-col items-center justify-between pb-12 pt-16"
             style={{ background: "linear-gradient(160deg, #020e0e 0%, #041818 60%, #021010 100%)" }}>
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-28 h-28 rounded-full overflow-hidden"
-                style={{ border: "3px solid rgba(0,212,170,0.6)", boxShadow: "0 0 40px rgba(0,212,170,0.4), 0 0 80px rgba(0,212,170,0.15)" }}>
-                <img src={PROFILE_LOGO} alt="" className="w-full h-full object-cover" />
+            {/* Logo + Visualizer Rings */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
+                {/* Animated rings — class changes based on callStatus */}
+                {[1,2,3].map(i => (
+                  <div key={i} className={`mic-ring ${
+                    callStatus === "শুনছি…" ? "mic-ring-listen" :
+                    callStatus === "বলছি…"  ? "mic-ring-speak"  :
+                    "mic-ring-think"
+                  }`} style={{ width: 112, height: 112 }} />
+                ))}
+                {/* Logo */}
+                <div className="relative z-10 w-28 h-28 rounded-full overflow-hidden"
+                  style={{
+                    border: `3px solid ${callStatus === "শুনছি…" ? "rgba(34,211,238,0.7)" : callStatus === "বলছি…" ? "rgba(74,222,128,0.7)" : "rgba(251,191,36,0.7)"}`,
+                    boxShadow: `0 0 32px ${callStatus === "শুনছি…" ? "rgba(34,211,238,0.4)" : callStatus === "বলছি…" ? "rgba(74,222,128,0.4)" : "rgba(251,191,36,0.3)"}`,
+                    transition: "border-color 0.4s, box-shadow 0.4s",
+                  }}>
+                  <img src={PROFILE_LOGO} alt="" className="w-full h-full object-cover" />
+                </div>
               </div>
-              <p className="text-cyan-300 font-black text-xl tracking-widest" style={{ fontFamily: "'Exo 2', sans-serif" }}>PARISA AI</p>
-              <p className="text-white/50 text-xs" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>অডিও কল চলছে</p>
+              <p className="font-black text-xl tracking-widest"
+                style={{
+                  color: callStatus === "শুনছি…" ? "#22d3ee" : callStatus === "বলছি…" ? "#4ade80" : "#fbbf24",
+                  fontFamily: "'Exo 2', sans-serif",
+                  transition: "color 0.4s",
+                }}>PARISA AI</p>
+              <p className="text-white/70 text-sm font-medium" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+                {callStatus}
+              </p>
             </div>
 
-            <div className="flex flex-col items-center gap-4 w-full px-6">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full animate-pulse"
-                  style={{ background: callStatus === "শুনছি…" ? "#22d3ee" : callStatus === "বলছি…" ? "#4ade80" : "#f59e0b" }} />
-                <p className="text-white text-sm font-medium" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>{callStatus}</p>
-              </div>
-
-              {callCaption && (
+            {/* Caption */}
+            <div className="w-full px-6">
+              {callCaption ? (
                 <div className="w-full rounded-2xl px-4 py-3 text-center"
-                  style={{ background: "rgba(0,212,170,0.08)", border: "1px solid rgba(0,212,170,0.2)" }}>
-                  <p className="text-white/85 text-sm leading-relaxed" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
+                  style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(8px)" }}>
+                  <p className="text-white/90 text-sm leading-relaxed" style={{ fontFamily: "'Hind Siliguri', sans-serif" }}>
                     {callCaption}
                   </p>
                 </div>
+              ) : (
+                <div className="h-12" />
               )}
             </div>
 
