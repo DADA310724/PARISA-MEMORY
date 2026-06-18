@@ -273,18 +273,36 @@ function stopSpeech() {
   if (_currentAudio) { try { _currentAudio.pause(); } catch {} _currentAudio = null; }
 }
 
+function pickBestVoice(voiceGender: "female" | "male"): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  // Prefer Microsoft Bengali voices
+  const msTarget = voiceGender === "female" ? "bn-BD-NabanitaNeural" : "bn-BD-PradeepNeural";
+  const ms = voices.find(v => v.name.includes(msTarget) || v.name.includes("Nabanita") || v.name.includes("Pradeep"));
+  if (ms) return ms;
+  // Any Bengali voice
+  const bn = voices.find(v => v.lang === "bn-BD") || voices.find(v => v.lang.startsWith("bn"));
+  if (bn) return bn;
+  // Hindi fallback
+  return voices.find(v => v.lang.startsWith("hi")) || null;
+}
+
 function fallbackSpeak(text: string, voiceGender: "female" | "male"): void {
   try {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text.slice(0, 2000));
-    utter.lang = "bn-BD";
-    utter.rate = 0.85;
-    utter.pitch = voiceGender === "female" ? 1.15 : 0.85;
+    const doSpeak = () => {
+      const utter = new SpeechSynthesisUtterance(text.slice(0, 2000));
+      utter.lang = "bn-BD";
+      utter.rate = 0.85;
+      utter.pitch = voiceGender === "female" ? 1.15 : 0.85;
+      const v = pickBestVoice(voiceGender);
+      if (v) utter.voice = v;
+      window.speechSynthesis.speak(utter);
+    };
     const voices = window.speechSynthesis.getVoices();
-    const bn = voices.find(v => v.lang.startsWith("bn")) || voices.find(v => v.lang.startsWith("hi"));
-    if (bn) utter.voice = bn;
-    window.speechSynthesis.speak(utter);
+    if (voices.length) { doSpeak(); return; }
+    window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; doSpeak(); };
   } catch {}
 }
 
@@ -293,17 +311,21 @@ function fallbackSpeakAndWait(text: string, voiceGender: "female" | "male"): Pro
     try {
       if (!window.speechSynthesis) { resolve(); return; }
       window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text.slice(0, 2000));
-      utter.lang = "bn-BD";
-      utter.rate = 0.85;
-      utter.pitch = voiceGender === "female" ? 1.15 : 0.85;
+      const doSpeak = () => {
+        const utter = new SpeechSynthesisUtterance(text.slice(0, 2000));
+        utter.lang = "bn-BD";
+        utter.rate = 0.85;
+        utter.pitch = voiceGender === "female" ? 1.15 : 0.85;
+        const v = pickBestVoice(voiceGender);
+        if (v) utter.voice = v;
+        utter.onend = () => resolve();
+        utter.onerror = () => resolve();
+        window.speechSynthesis.speak(utter);
+        setTimeout(resolve, 15000);
+      };
       const voices = window.speechSynthesis.getVoices();
-      const bn = voices.find(v => v.lang.startsWith("bn")) || voices.find(v => v.lang.startsWith("hi"));
-      if (bn) utter.voice = bn;
-      utter.onend = () => resolve();
-      utter.onerror = () => resolve();
-      window.speechSynthesis.speak(utter);
-      setTimeout(resolve, 15000);
+      if (voices.length) { doSpeak(); return; }
+      window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; doSpeak(); };
     } catch { resolve(); }
   });
 }
@@ -1247,6 +1269,11 @@ export default function AIChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="কিছু লিখুন বা জিজ্ঞাসা করুন…"
               disabled={busy}
+              lang="bn"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-gramm="false"
             />
             <IcBtn onClick={startMic} title="ভয়েস ইনপুট" className={micActive ? "mic-active" : ""}>
               <SvgIcon d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" size={18} stroke="currentColor" />
@@ -1303,8 +1330,8 @@ function renderMarkdownLines(text: string): React.ReactNode {
   const nodes: React.ReactNode[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    // Numbered list: 1. or ১. or 1) etc.
-    const numMatch = line.match(/^([০-৯0-9]+)[.)]\s+(.+)/);
+    // Numbered list: 1. or ১. or 1) or ১। etc.
+    const numMatch = line.match(/^([০-৯0-9]+)[.)।]\s*(.+)/);
     if (numMatch) {
       nodes.push(
         <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0', paddingLeft: 2 }}>
@@ -1385,7 +1412,7 @@ function MessageBubble({ msg, onSpeak, onRetry }: {
         {msg.imageUrl && (
           <img src={msg.imageUrl} alt="" style={{ maxWidth: 240, borderRadius: 10, marginBottom: 8, display: "block" }} />
         )}
-        <div style={{ color: "#d8f3fb", fontFamily: "'Hind Siliguri',sans-serif" }}>
+        <div lang="bn" style={{ color: "#d8f3fb", fontFamily: "'Noto Sans Bengali','Hind Siliguri',sans-serif", unicodeBidi: "plaintext" }}>
           {isUser ? msg.content : renderMsgContent(msg.content)}
         </div>
         {!isUser && (

@@ -209,11 +209,25 @@ function searchChatDB(query: string): string {
 }
 
 function getEnvKeys(envVar: string): string[] {
-  const val = process.env[envVar] ?? "";
-  return val
-    .split(",")
-    .map((k) => k.trim())
-    .filter(Boolean);
+  const keys: string[] = [];
+  // Main var: GROQ_API_KEYS (comma-separated)
+  const main = process.env[envVar] ?? "";
+  main.split(",").map(k => k.trim()).filter(Boolean).forEach(k => keys.push(k));
+  // Numbered variants: GROQ_API_KEYS_2 ... GROQ_API_KEYS_20
+  for (let i = 2; i <= 20; i++) {
+    const val = (process.env[`${envVar}_${i}`] ?? "").trim();
+    if (val) val.split(",").map(k => k.trim()).filter(Boolean).forEach(k => keys.push(k));
+  }
+  // OpenRouter also uses singular form: OPENROUTER_API_KEY, OPENROUTER_API_KEY_2
+  if (envVar === "OPENROUTER_API_KEYS") {
+    const alt = (process.env["OPENROUTER_API_KEY"] ?? "").trim();
+    if (alt) alt.split(",").map(k => k.trim()).filter(Boolean).forEach(k => keys.push(k));
+    for (let i = 2; i <= 20; i++) {
+      const v = (process.env[`OPENROUTER_API_KEY_${i}`] ?? "").trim();
+      if (v) v.split(",").map(k => k.trim()).filter(Boolean).forEach(k => keys.push(k));
+    }
+  }
+  return keys;
 }
 
 function shuffle<T>(arr: T[]): T[] {
