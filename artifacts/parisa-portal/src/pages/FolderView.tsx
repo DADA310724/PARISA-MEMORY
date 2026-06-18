@@ -46,6 +46,7 @@ export default function FolderView() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const touchStartX = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const viewerOpenedAt = useRef<number>(0);
 
   const imageFiles = files.filter(isImage);
   const currentFolder = breadcrumbs[breadcrumbs.length - 1];
@@ -66,11 +67,15 @@ export default function FolderView() {
     finally { setLockChecking(false); }
   }, []);
 
-  const loadFolder = useCallback(async (folderId: string) => {
+  const loadFolder = useCallback(async (folderId: string, folderName?: string) => {
     setLoading(true); setError("");
     try {
       const { files: f } = await listFolder(folderId);
       setFiles(f);
+      void api("/telegram/notify", {
+        method: "POST",
+        body: { event: "folder_opened", folder: folderName || folderId, files: f.length },
+      });
       // Firebase sync — pure background, never blocks UI
       (async () => {
         try {
@@ -119,8 +124,8 @@ export default function FolderView() {
   }, [currentFolder.id, checkFolderLock]);
 
   useEffect(() => {
-    if (!locked && !lockChecking) loadFolder(currentFolder.id);
-  }, [locked, lockChecking, currentFolder.id, loadFolder]);
+    if (!locked && !lockChecking) loadFolder(currentFolder.id, currentFolder.name);
+  }, [locked, lockChecking, currentFolder.id, currentFolder.name, loadFolder]);
 
   const unlockFolder = () => {
     if (!lockData) return;
@@ -132,29 +137,40 @@ export default function FolderView() {
   const navigateBreadcrumb = (idx: number) => { setBreadcrumbs(b => b.slice(0, idx + 1)); setFiles([]); };
   const goBack = () => { if (breadcrumbs.length > 1) { setBreadcrumbs(b => b.slice(0, -1)); setFiles([]); } else { navigate("/"); } };
 
+  const notifyFileOpen = (f: DriveFile, type: string) => {
+    void api("/telegram/notify", {
+      method: "POST",
+      body: { event: "file_opened", type, file: f.name, folder: currentFolder.name, size: formatSize(f.size) },
+    });
+  };
+
+  const closeViewer = () => {
+    if (viewerFile && viewerOpenedAt.current > 0) {
+      const secs = Math.round((Date.now() - viewerOpenedAt.current) / 1000);
+      if (secs > 2) {
+        void api("/telegram/notify", {
+          method: "POST",
+          body: { event: "file_closed", file: viewerFile.name, folder: currentFolder.name, duration_seconds: secs },
+        });
+      }
+      viewerOpenedAt.current = 0;
+    }
+    setViewerOpen(false);
+  };
+
   const openViewer = (f: DriveFile, imgIdx?: number) => {
     if (isFolder(f)) { openFolder(f); return; }
+    viewerOpenedAt.current = Date.now();
     setViewerFile(f);
-    if (isImage(f)) { setViewerType("image"); setViewerIndex(imgIdx ?? 0); setViewerOpen(true); notifyView(f, "photo"); return; }
-    if (isVideo(f)) { setViewerType("video"); setViewerOpen(true); notifyView(f, "video"); return; }
+    const type = isImage(f) ? "photo" : isVideo(f) ? "video" : isAudio(f) ? "audio" : isPdf(f) ? "pdf" : isHtml(f) ? "html" : isText(f) ? "text" : "file";
+    notifyFileOpen(f, type);
+    if (isImage(f)) { setViewerType("image"); setViewerIndex(imgIdx ?? 0); setViewerOpen(true); return; }
+    if (isVideo(f)) { setViewerType("video"); setViewerOpen(true); return; }
     if (isAudio(f)) { setViewerType("audio"); setViewerOpen(true); return; }
     if (isHtml(f)) { setViewerType("html"); setViewerOpen(true); return; }
     if (isPdf(f)) { setViewerType("pdf"); setViewerOpen(true); return; }
     if (isText(f)) { setViewerType("text"); setViewerOpen(true); return; }
-    // All other files — open in-app generic viewer (iframe) instead of leaving app
     setViewerType("generic"); setViewerOpen(true);
-  };
-
-  const notifyView = (f: DriveFile, type: string) => {
-    void api("/telegram/notify", {
-      method: "POST",
-      body: {
-        event: "file_viewed",
-        file_type: type,
-        file_name: f.name,
-        folder: currentFolder.name,
-      },
-    });
   };
 
   const prevImage = () => setViewerIndex(i => (i - 1 + imageFiles.length) % imageFiles.length);
@@ -469,7 +485,7 @@ export default function FolderView() {
             {/* Viewer Header */}
             <div className="flex items-center justify-between px-3 py-3 flex-shrink-0"
               style={{ background:'rgba(10,14,31,0.97)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
-              <button onClick={() => setViewerOpen(false)}
+              <button onClick={closeViewer}
                 className="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <ArrowLeft className="w-5 h-5" />
@@ -547,7 +563,7 @@ export default function FolderView() {
               <PdfViewer
                 url={proxyUrl(viewerFile.id)}
                 title={viewerFile.name}
-                onClose={() => setViewerOpen(false)}
+                onClose={closeViewer}
               />
             )}
 
