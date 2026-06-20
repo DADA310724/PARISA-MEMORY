@@ -31,8 +31,8 @@ const HISTORY_CONTEXT = `
 - ৮ ফেব্রুয়ারি ২০২৪: পারিসার সাথে প্রথম পরিচয় ও সম্পর্কের শুরু (তখন পারিসা দশম শ্রেণির ছাত্রী)। পারিসার মাও সম্পর্কের বিষয়ে জানতেন।
 - ৩০ জুলাই ২০২৪: রুবেল নিজের গাড়ি চালিয়ে বাবা-মা ও পারিসাকে নিয়ে শরীয়তপুর রওনা।
 - ৩১ জুলাই ২০২৪: পারিবারিক চাপে পালিয়ে শরীয়তপুরে ধর্মীয় ও রাষ্ট্রীয় আইন মেনে বিবাহ। কোনো জোরপূর্বক বা কিডন্যাপের ঘটনা ছিল না — উভয়পক্ষের স্বেচ্ছায় বিয়ে।
-- আগস্ট ২০২৪ (বিয়ের ১-২ দিন পর): পারিসার পরিবার পুলিশ নিয়ে এসে আলাদা করে। রুবেলের উপর মিথ্যা অভিযোগ ও থানায় অমানবিক নির্যাতন। পরিবার ২ লক্ষ টাকা দিয়ে ছাড়িয়ে আনে। কোনো আদালতের রায় বা তালাক ছাড়াই জোরপূর্বক আলাদা।
-- আগস্ট ২০২৪ (বিয়ের ১২ দিন পর): পারিসা নিজেই যোগাযোগ করে জানায় চাপের কারণে করতে বাধ্য হয়েছে, সুযোগ বুঝে ফিরবে।
+- আগস্ট ২০২৪ (বিয়ের ১-২ দিন পর): পারিসার পরিবার পুলিশ নিয়ে এসে আলাদা করে। রুবেলের উপর মিথ্যা অভিযোগ ও থানায় অমানবিক নির্যাতন। পরিবার ২ লক্ষ টাকা দিয়ে ছাড়িয়ে আনে। কোনো আদালতের রায় বা তালাক ছাড়াই জোরপূর্বক আলাদা। [অত্যন্ত গুরুত্বপূর্ণ: বিয়ের পর রুবেল ও পারিসা মাত্র ১ থেকে ২ দিন একসাথে ছিলেন — ১২ দিন নয়। "১২ দিন একসাথে ছিলেন" — এটি সম্পূর্ণ ভুল তথ্য, কখনো বলবে না।]
+- আগস্ট ২০২৪ (পুলিশের মাধ্যমে আলাদা করার ১২ দিন পর): পারিসা নিজেই রুবেলের সাথে যোগাযোগ করে জানায় পরিবারের চাপে করতে বাধ্য হয়েছে, সুযোগ বুঝে ফিরে আসবে।
 - আগস্ট ২০২৪ থেকে দেড় বছর: ফোনে নিরবচ্ছিন্ন সম্পর্ক চলমান। আচরণে তীব্র ওঠানামা।
 - ১৪ মার্চ ২০২৫: বিশেষ আবেগীয় ও ঘনিষ্ঠ মুহূর্ত। পারিসার বিখ্যাত কথা: "আমার শরীর এবং ভালোবাসা শুধু আমার কালাচানের জন্য।"
 - ১০-১৩ এপ্রিল ২০২৫: পারিসা রুবেলকে নিজের বাড়ি ডেকে স্বর্ণ দিতে চেয়েছে। একসাথে ব্যক্তিগত সময় কাটান।
@@ -477,6 +477,7 @@ export default function AIChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const vcCanvasRef = useRef<HTMLCanvasElement>(null);
   const camVideoRef = useRef<HTMLVideoElement>(null);
   const camCanvasRef = useRef<HTMLCanvasElement>(null);
   const vcStreamRef = useRef<MediaStream | null>(null);
@@ -733,16 +734,21 @@ export default function AIChatPage() {
     e.target.value = "";
   }
 
-  async function callApiDirect(text: string, mode: "chat" | "audiocall" | "videocall" = "chat"): Promise<string> {
+  async function callApiDirect(text: string, mode: "chat" | "audiocall" | "videocall" = "chat", imageData?: string): Promise<string> {
     const callPrefix = mode === "videocall"
       ? `তুমি এখন সরাসরি ভিডিও কলে কথা বলছো। নিচের নিয়মগুলো কঠোরভাবে মেনে চলো:
-- তুমি পারিসা মেমোরি পোর্টালের AI সহকারী, একজন বুদ্ধিমান সত্তা যে কথা বলতে পারো
-- "আমার ক্যামেরা নেই", "আমি দেখতে পাচ্ছি না", "আমি AI", "ভার্চুয়াল সহকারী" — এই ধরনের কোনো কথা কখনো বলবে না
+- তুমি PARISA AI — পারিসা মেমোরি পোর্টালের বুদ্ধিমান ড্যাশবোর্ড সহকারী
+- তোমার ক্যামেরা আছে, তুমি সব দেখতে পাচ্ছো — "দেখতে পাচ্ছি না", "ক্যামেরা নেই", "আমি AI", "ভার্চুয়াল সহকারী", "আমার কোনো শরীর নেই" — এই ধরনের কথা কখনো বলবে না
+- ছবি বা ভিডিও ফ্রেম দিলে সেটি দেখে বিস্তারিত বিশ্লেষণ করো
+- সব ড্যাশবোর্ড ফোল্ডার সম্পর্কে তোমার পূর্ণ জ্ঞান আছে
 - স্বাভাবিকভাবে বাংলায় সংক্ষেপে উত্তর দাও, ২-৩ বাক্যের মধ্যে
 - কাউকে নাম ধরে চিনবে না বা সম্বোধন করবে না
 - ইমোজি বা মার্কডাউন ব্যবহার করবে না\n\n`
       : mode === "audiocall"
       ? `তুমি এখন সরাসরি অডিও কলে কথা বলছো। নিচের নিয়মগুলো কঠোরভাবে মেনে চলো:
+- তুমি PARISA AI — পারিসা মেমোরি পোর্টালের বুদ্ধিমান ড্যাশবোর্ড সহকারী
+- "আমি AI" বা "আমি ভার্চুয়াল সহকারী" — এই ধরনের কথা বলবে না
+- সব ড্যাশবোর্ড ফোল্ডার সম্পর্কে তোমার পূর্ণ জ্ঞান আছে
 - স্বাভাবিকভাবে বাংলায় সংক্ষেপে উত্তর দাও, ২-৩ বাক্যের মধ্যে
 - কাউকে নাম ধরে চিনবে না বা সম্বোধন করবে না
 - ইমোজি বা মার্কডাউন ব্যবহার করবে না\n\n`
@@ -750,7 +756,7 @@ export default function AIChatPage() {
     try {
       const resp = await api<{ text: string }>("/ai/chat", {
         method: "POST",
-        body: { messages: [{ role: "user", content: text }], systemPrompt: callPrefix + buildSystemPrompt(isAdmin ? adminPrompt : userPrompt), provider: "auto", groqKeys: aiKeys.groq, geminiKeys: aiKeys.gemini, openrouterKeys: aiKeys.openrouter },
+        body: { messages: [{ role: "user", content: text }], systemPrompt: callPrefix + buildSystemPrompt(isAdmin ? adminPrompt : userPrompt), provider: "auto", groqKeys: aiKeys.groq, geminiKeys: aiKeys.gemini, openrouterKeys: aiKeys.openrouter, imageData },
       });
       return resp.text || "দুঃখিত বুঝতে পারলাম না";
     } catch { return "দুঃখিত নেটওয়ার্ক সমস্যা"; }
@@ -841,6 +847,17 @@ export default function AIChatPage() {
     } catch (e: unknown) { alert("ক্যামেরা চালু করা যাচ্ছে না: " + (e as Error).message); }
   }
 
+  function snapVideoFrame(): string | null {
+    try {
+      const v = videoRef.current;
+      const c = vcCanvasRef.current;
+      if (!v || !c || v.videoWidth === 0) return null;
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext("2d")?.drawImage(v, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.7);
+    } catch { return null; }
+  }
+
   function videoCallLoop() {
     if (!callActiveRef.current) return;
     const r = makeRecognizer();
@@ -859,7 +876,9 @@ export default function AIChatPage() {
       const said = finalText.trim();
       if (!said) { setTimeout(videoCallLoop, 200); return; }
       setCallStatus("ভাবছি…");
-      const reply = await callApiDirect(said, "videocall");
+      // Capture camera frame — send to AI for visual analysis
+      const frame = snapVideoFrame();
+      const reply = await callApiDirect(said, "videocall", frame ?? undefined);
       if (!callActiveRef.current) return;
       setCallStatus("বলছি…"); setCallCaption(reply);
       await speakAndWait(reply, voiceGender);
@@ -924,10 +943,11 @@ export default function AIChatPage() {
       const resp = await api<{ text: string }>("/ai/chat", {
         method: "POST",
         body: {
-          messages: [{ role: "user", content: promptText || "এই ছবিতে কী দেখা যাচ্ছে? বাংলায় সংক্ষেপে বল।" }],
-          systemPrompt: buildSystemPrompt(isAdmin ? adminPrompt : userPrompt),
+          messages: [{ role: "user", content: promptText || "এই ছবিতে কী দেখা যাচ্ছে? বাংলায় বিস্তারিত বলো।" }],
+          systemPrompt: `তুমি PARISA AI। ক্যামেরায় ধরা ছবি দেখে বিস্তারিত বিশ্লেষণ করো। বাংলায় স্পষ্টভাবে বলো কী দেখা যাচ্ছে।\n\n` + buildSystemPrompt(isAdmin ? adminPrompt : userPrompt),
           provider: "auto",
           groqKeys: aiKeys.groq, geminiKeys: aiKeys.gemini, openrouterKeys: aiKeys.openrouter,
+          imageData: img,
         },
       });
       setCamCaption(resp.text || "কিছু বুঝতে পারলাম না।");
@@ -1010,6 +1030,9 @@ export default function AIChatPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Hidden canvas for video call frame capture */}
+      <canvas ref={vcCanvasRef} style={{ display: "none" }} />
 
       {/* ── Video Call Fullscreen ── */}
       <AnimatePresence>

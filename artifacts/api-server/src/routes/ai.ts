@@ -20,6 +20,7 @@ interface ChatRequest {
   groqKeys?: string[];
   geminiKeys?: string[];
   openrouterKeys?: string[];
+  imageData?: string; // base64 data URL for vision (Gemini only)
 }
 
 interface RawMsg {
@@ -298,14 +299,31 @@ async function tryGemini(
   keys: string[],
   messages: ChatMessage[],
   systemPrompt: string,
+  imageData?: string,
 ): Promise<string> {
   const allKeys = shuffle([...keys, ...getEnvKeys("GEMINI_API_KEYS")]);
   const uniqueKeys = [...new Set(allKeys)].filter(Boolean);
 
-  const contents = messages.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
+  const contents = messages.map((m, idx) => {
+    const isLastUser = m.role === "user" && idx === messages.length - 1;
+    if (isLastUser && imageData) {
+      // Extract base64 from data URL: "data:image/jpeg;base64,<data>"
+      const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        return {
+          role: "user",
+          parts: [
+            { text: m.content },
+            { inlineData: { mimeType: match[1], data: match[2] } },
+          ],
+        };
+      }
+    }
+    return {
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    };
+  });
 
   const geminiModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"];
   for (const key of uniqueKeys) {
@@ -391,6 +409,7 @@ aiRouter.post("/chat", async (req: Request, res: Response) => {
     groqKeys = [],
     geminiKeys = [],
     openrouterKeys = [],
+    imageData,
   } = req.body as ChatRequest;
 
   const lastUserMsg =
@@ -400,23 +419,21 @@ aiRouter.post("/chat", async (req: Request, res: Response) => {
     ? `${systemPrompt}\n\n=== প্রাসঙ্গিক চ্যাট হিস্টরি ===\n${chatContext}\n=== শেষ ===`
     : systemPrompt;
 
+  // When imageData is provided, use Gemini first (it supports vision)
   const providers: Array<{
     name: string;
     fn: () => Promise<string>;
-  }> = [
-    {
-      name: "groq",
-      fn: () => tryGroq(groqKeys, messages, enhancedPrompt),
-    },
-    {
-      name: "gemini",
-      fn: () => tryGemini(geminiKeys, messages, enhancedPrompt),
-    },
-    {
-      name: "openrouter",
-      fn: () => tryOpenRouter(openrouterKeys, messages, enhancedPrompt),
-    },
-  ];
+  }> = imageData
+    ? [
+        { name: "gemini", fn: () => tryGemini(geminiKeys, messages, enhancedPrompt, imageData) },
+        { name: "groq", fn: () => tryGroq(groqKeys, messages, enhancedPrompt) },
+        { name: "openrouter", fn: () => tryOpenRouter(openrouterKeys, messages, enhancedPrompt) },
+      ]
+    : [
+        { name: "groq", fn: () => tryGroq(groqKeys, messages, enhancedPrompt) },
+        { name: "gemini", fn: () => tryGemini(geminiKeys, messages, enhancedPrompt) },
+        { name: "openrouter", fn: () => tryOpenRouter(openrouterKeys, messages, enhancedPrompt) },
+      ];
 
   for (const p of providers) {
     try {

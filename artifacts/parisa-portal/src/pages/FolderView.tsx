@@ -521,50 +521,69 @@ export default function FolderView() {
               </div>
             )}
 
-            {/* Video player — proper native controls, no autoplay forced */}
+            {/* Premium Video Player */}
             {viewerType === 'video' && (
-              <div className="flex-1 flex items-center justify-center p-2">
+              <div className="flex-1 flex flex-col items-center justify-center" style={{ background:'#000', padding:'0' }}>
                 {mediaError ? (
-                  <div className="text-center">
+                  <div className="text-center p-8">
                     <div className="text-5xl mb-4">⚠️</div>
                     <p className="text-white/60 text-sm mb-4" style={{ fontFamily:"'Hind Siliguri',sans-serif" }}>ভিডিও লোড হয়নি</p>
-                    <button
-                      onClick={() => { setMediaError(false); setMediaRetryKey(k => k + 1); }}
+                    <button onClick={() => { setMediaError(false); setMediaRetryKey(k => k + 1); }}
                       className="px-5 py-2 rounded-xl text-sm font-bold"
                       style={{ background:'rgba(0,229,255,0.15)', border:'1px solid rgba(0,229,255,0.4)', color:'#00e5ff', fontFamily:"'Hind Siliguri',sans-serif" }}>
                       আবার চেষ্টা করুন
                     </button>
                   </div>
                 ) : (
-                  <video
-                    key={`${viewerFile.id}-${mediaRetryKey}`}
-                    ref={videoRef}
-                    src={proxyUrl(viewerFile.id)}
-                    controls
-                    playsInline
-                    preload="auto"
-                    className="max-w-full rounded-xl"
-                    style={{ maxHeight:'calc(100vh - 120px)', width:'100%' }}
-                    onContextMenu={e => e.preventDefault()}
-                    onError={() => setMediaError(true)}
-                  />
+                  <div style={{ width:'100%', maxHeight:'calc(100vh - 120px)', position:'relative', background:'#000', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <video
+                      key={`${viewerFile.id}-${mediaRetryKey}`}
+                      ref={videoRef}
+                      src={proxyUrl(viewerFile.id)}
+                      controls
+                      playsInline
+                      preload="auto"
+                      style={{ width:'100%', maxHeight:'calc(100vh - 120px)', objectFit:'contain', display:'block' }}
+                      onContextMenu={e => e.preventDefault()}
+                      onError={() => setMediaError(true)}
+                    />
+                    <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'8px 12px 6px', background:'linear-gradient(transparent,rgba(0,0,0,0.7))', pointerEvents:'none' }}>
+                      <p className="text-white/70 truncate" style={{ fontSize:11, fontFamily:"'Hind Siliguri',sans-serif" }}>{viewerFile.name}</p>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Audio player */}
+            {/* Premium Audio Player */}
             {viewerType === 'audio' && (
-              <div className="flex-1 flex items-center justify-center p-6">
-                <div className="w-full max-w-sm rounded-2xl p-8 text-center" style={{ background:'rgba(255,143,0,0.1)', border:'1px solid rgba(255,143,0,0.3)' }}>
-                  <motion.div animate={{ scale:[1,1.1,1] }} transition={{ repeat:Infinity, duration:1.5 }} className="text-6xl mb-4">🎵</motion.div>
-                  <p className="text-white font-medium mb-6 text-sm truncate">{viewerFile.name}</p>
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="w-full max-w-md" style={{ background:'linear-gradient(145deg,rgba(20,10,40,0.95),rgba(10,5,25,0.98))', border:'1px solid rgba(180,100,255,0.25)', borderRadius:24, padding:'32px 24px', boxShadow:'0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(140,80,255,0.08)' }}>
+                  {/* Animated waveform bars */}
+                  <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'center', gap:4, height:64, marginBottom:24 }}>
+                    {Array.from({ length: 20 }).map((_, i) => (
+                      <motion.div
+                        key={i}
+                        animate={{ height: [`${12 + Math.random() * 40}px`, `${20 + Math.random() * 36}px`, `${8 + Math.random() * 44}px`] }}
+                        transition={{ duration: 0.6 + Math.random() * 0.8, repeat: Infinity, repeatType: 'mirror', delay: i * 0.06 }}
+                        style={{ width:4, borderRadius:3, background:`linear-gradient(180deg, rgba(200,120,255,0.9), rgba(100,60,200,0.6))`, minHeight:8 }}
+                      />
+                    ))}
+                  </div>
+                  {/* Album art / icon */}
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>
+                    <div style={{ width:72, height:72, borderRadius:18, background:'linear-gradient(135deg,rgba(160,80,255,0.4),rgba(80,40,160,0.6))', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 24px rgba(160,80,255,0.3)', border:'1px solid rgba(200,120,255,0.2)' }}>
+                      <span style={{ fontSize:36 }}>🎵</span>
+                    </div>
+                  </div>
+                  {/* Title */}
+                  <p style={{ color:'rgba(255,255,255,0.9)', textAlign:'center', fontWeight:600, fontSize:14, marginBottom:20, fontFamily:"'Hind Siliguri',sans-serif", overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{viewerFile.name.replace(/\.[^.]+$/, '')}</p>
                   {mediaError ? (
                     <div className="text-center">
                       <p className="text-white/60 text-sm mb-3" style={{ fontFamily:"'Hind Siliguri',sans-serif" }}>অডিও লোড হয়নি</p>
-                      <button
-                        onClick={() => { setMediaError(false); setMediaRetryKey(k => k + 1); }}
-                        className="px-5 py-2 rounded-xl text-sm font-bold"
-                        style={{ background:'rgba(0,229,255,0.15)', border:'1px solid rgba(0,229,255,0.4)', color:'#00e5ff', fontFamily:"'Hind Siliguri',sans-serif" }}>
+                      <button onClick={() => { setMediaError(false); setMediaRetryKey(k => k + 1); }}
+                        className="px-5 py-2 rounded-xl text-sm font-bold mx-auto block"
+                        style={{ background:'rgba(160,80,255,0.15)', border:'1px solid rgba(160,80,255,0.4)', color:'#c084fc', fontFamily:"'Hind Siliguri',sans-serif" }}>
                         আবার চেষ্টা করুন
                       </button>
                     </div>
@@ -575,7 +594,7 @@ export default function FolderView() {
                       src={proxyUrl(viewerFile.id)}
                       controls
                       preload="auto"
-                      className="w-full"
+                      style={{ width:'100%', borderRadius:12, accentColor:'#a855f7' }}
                       onContextMenu={e => e.preventDefault()}
                       onError={() => setMediaError(true)}
                     />
