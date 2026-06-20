@@ -353,11 +353,8 @@ driveRouter.get("/proxy/:id", async (req: Request, res: Response) => {
         return;
       }
 
-      // If Drive returned HTML (virus scan page), something went wrong
-      if (contentType.includes("text/html")) {
-        if (!res.headersSent) res.status(502).json({ error: "Drive returned HTML instead of file" });
-        return;
-      }
+      // Service accounts bypass Drive's virus-scan HTML gate, so HTML responses are real HTML files.
+      // Allow them through — WhatsApp chat exports and other HTML files need to be served as-is.
 
       // Set CORS + cache headers
       res.setHeader("Access-Control-Allow-Origin", "*");

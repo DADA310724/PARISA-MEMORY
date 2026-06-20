@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { SiTelegram } from "react-icons/si";
@@ -28,6 +29,40 @@ function getStyle(logoKey: string) {
 export default function DashboardPage() {
   const { buttons, loading } = useApp();
   const [, setLocation] = useLocation();
+
+  // ── Background prefetch: warms server media cache for all folders on app open ──
+  useEffect(() => {
+    if (loading || buttons.length === 0) return;
+    const folderIds = buttons
+      .filter(b => b.link_type === "drive_folder" && b.drive_folder_id)
+      .map(b => b.drive_folder_id as string);
+    if (folderIds.length === 0) return;
+
+    let cancelled = false;
+    const prefetchFolder = async (folderId: string) => {
+      try {
+        const resp = await fetch(`/api/drive/list?folderId=${encodeURIComponent(folderId)}`);
+        if (!resp.ok || cancelled) return;
+        const data = await resp.json() as { files?: Array<{ id: string; mimeType?: string }> };
+        const mediaFiles = (data.files || []).filter(f =>
+          (f.mimeType || "").startsWith("video/") || (f.mimeType || "").startsWith("audio/")
+        ).slice(0, 6);
+        for (let i = 0; i < mediaFiles.length && !cancelled; i++) {
+          try { await fetch(`/api/drive/prefetch/${mediaFiles[i].id}`); } catch {}
+          if (i < mediaFiles.length - 1 && !cancelled) await new Promise<void>(r => setTimeout(r, 400));
+        }
+      } catch {}
+    };
+
+    const run = async () => {
+      for (let i = 0; i < folderIds.length && !cancelled; i++) {
+        await prefetchFolder(folderIds[i]);
+        if (i < folderIds.length - 1 && !cancelled) await new Promise<void>(r => setTimeout(r, 800));
+      }
+    };
+    const timer = setTimeout(run, 2500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [buttons, loading]);
 
   function openAI() { setLocation("/ai-chat"); }
 

@@ -166,6 +166,7 @@ export default function FolderView() {
     setViewerFile(f);
     const type = isImage(f) ? "photo" : isVideo(f) ? "video" : isAudio(f) ? "audio" : isPdf(f) ? "pdf" : isHtml(f) ? "html" : isText(f) ? "text" : "file";
     notifyFileOpen(f, type);
+    setMediaError(false);
     if (isImage(f)) { setViewerType("image"); setViewerIndex(imgIdx ?? 0); setViewerOpen(true); return; }
     if (isVideo(f)) { setViewerType("video"); setViewerOpen(true); return; }
     if (isAudio(f)) { setViewerType("audio"); setViewerOpen(true); return; }
@@ -178,40 +179,14 @@ export default function FolderView() {
   const prevImage = () => setViewerIndex(i => (i - 1 + imageFiles.length) % imageFiles.length);
   const nextImage = () => setViewerIndex(i => (i + 1) % imageFiles.length);
 
-  useEffect(() => {
-    if (viewerOpen && (viewerType === 'video' || viewerType === 'audio')) {
-      setMediaError(false);
-    }
-  }, [viewerOpen, viewerType, viewerFile]);
-
-  // ── Background media prefetch — warms server chunk-cache silently ────────
-  // Runs after files load so first-play is near-instant
-  useEffect(() => {
-    if (loading || files.length === 0) return;
-    const mediaFiles = files.filter(f => isVideo(f) || isAudio(f));
-    if (mediaFiles.length === 0) return;
-    let cancelled = false;
-    const prefetch = async () => {
-      for (let i = 0; i < mediaFiles.length && !cancelled; i++) {
-        try {
-          await fetch(`/api/drive/prefetch/${mediaFiles[i].id}`, { method: "GET" });
-        } catch {}
-        if (i < mediaFiles.length - 1 && !cancelled) {
-          await new Promise<void>(r => setTimeout(r, 600)); // stagger to avoid hammering
-        }
-      }
-    };
-    // Wait 1.5s after folder loads before prefetching (let UI settle first)
-    const timer = setTimeout(prefetch, 1500);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [files, loading]);
-
+  // Image preload for gallery navigation
   useEffect(() => {
     if (viewerType !== 'image' || imageFiles.length <= 1) return;
     const preload = (idx: number) => { const f = imageFiles[idx]; if (f) { const img = new Image(); img.src = proxyUrl(f.id); } };
     preload((viewerIndex + 1) % imageFiles.length);
     preload((viewerIndex - 1 + imageFiles.length) % imageFiles.length);
   }, [viewerIndex, viewerType, imageFiles]);
+
   const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
@@ -328,7 +303,7 @@ export default function FolderView() {
         )}
       </AnimatePresence>
 
-      {/* Header — folder name shown, no "PARISA MEMORY PORTAL" */}
+      {/* Header */}
       <div className="sticky top-0 z-20 flex-shrink-0" style={{ background:'rgba(10,14,31,0.85)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-2 px-3 py-3">
           <button onClick={goBack}
@@ -410,21 +385,21 @@ export default function FolderView() {
               </div>
             )}
 
-            {/* Videos — 5-6 column grid with thumbnail */}
+            {/* Videos — cinematic dark blue theme */}
             {files.filter(isVideo).length > 0 && (
               <div>
-                <p className="text-xs text-purple-300/60 uppercase tracking-wider mb-2 font-medium">ভিডিও ({files.filter(isVideo).length})</p>
+                <p className="text-xs text-blue-300/60 uppercase tracking-wider mb-2 font-medium">ভিডিও ({files.filter(isVideo).length})</p>
                 <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
                   {files.filter(isVideo).map((f, i) => (
                     <motion.div key={f.id} initial={{ opacity:0, scale:0.92 }} animate={{ opacity:1, scale:1 }} transition={{ delay: i * 0.03 }}
                       onClick={() => openViewer(f)}
                       className="aspect-square rounded-xl overflow-hidden cursor-pointer relative group"
-                      style={{ background:'rgba(156,39,176,0.15)', border:'1px solid rgba(156,39,176,0.25)' }}>
+                      style={{ background:'rgba(10,30,70,0.6)', border:'1px solid rgba(60,120,255,0.25)' }}>
                       {f.thumbnailLink && (
                         <img src={f.thumbnailLink} alt={f.name} className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                       )}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-1" style={{ background: f.thumbnailLink ? 'rgba(0,0,0,0.35)' : undefined }}>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background:'rgba(156,39,176,0.7)', boxShadow:'0 0 10px rgba(156,39,176,0.6)' }}>▶</div>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-1" style={{ background: f.thumbnailLink ? 'rgba(0,0,0,0.30)' : 'rgba(10,30,70,0.5)' }}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background:'rgba(50,100,220,0.75)', boxShadow:'0 0 12px rgba(50,100,255,0.5)' }}>▶</div>
                         {!f.thumbnailLink && <p className="text-[7px] text-white/60 truncate w-full text-center leading-tight">{f.name.replace(/\.[^.]+$/, "")}</p>}
                       </div>
                       <p className="absolute bottom-0 left-0 right-0 text-[7px] text-white/70 truncate px-1 pb-0.5 bg-black/60">{formatSize(f.size)}</p>
@@ -434,7 +409,7 @@ export default function FolderView() {
               </div>
             )}
 
-            {/* Audio — 5-6 column grid like photos */}
+            {/* Audio */}
             {files.filter(isAudio).length > 0 && (
               <div>
                 <p className="text-xs text-orange-300/60 uppercase tracking-wider mb-2 font-medium">অডিও ({files.filter(isAudio).length})</p>
@@ -508,7 +483,7 @@ export default function FolderView() {
         {viewerOpen && viewerFile && (
           <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
             className="fixed inset-0 z-50 flex flex-col"
-            style={{ background: (viewerType === 'html' || viewerType === 'pdf' || viewerType === 'text' || viewerType === 'generic') ? 'rgba(0,0,0,0.97)' : 'rgba(0,0,0,0.97)' }}>
+            style={{ background: 'rgba(0,0,0,0.97)' }}>
             {/* Viewer Header */}
             <div className="flex items-center justify-between px-3 py-3 flex-shrink-0"
               style={{ background:'rgba(10,14,31,0.97)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
@@ -546,9 +521,9 @@ export default function FolderView() {
               </div>
             )}
 
-            {/* Video — download blocked */}
+            {/* Video player — proper native controls, no autoplay forced */}
             {viewerType === 'video' && (
-              <div className="flex-1 flex items-center justify-center p-4">
+              <div className="flex-1 flex items-center justify-center p-2">
                 {mediaError ? (
                   <div className="text-center">
                     <div className="text-5xl mb-4">⚠️</div>
@@ -565,24 +540,19 @@ export default function FolderView() {
                     key={`${viewerFile.id}-${mediaRetryKey}`}
                     ref={videoRef}
                     src={proxyUrl(viewerFile.id)}
-                    controls playsInline
+                    controls
+                    playsInline
                     preload="auto"
-                    controlsList="nodownload nofullscreen"
                     className="max-w-full rounded-xl"
-                    style={{ maxHeight:'calc(100vh - 120px)' }}
+                    style={{ maxHeight:'calc(100vh - 120px)', width:'100%' }}
                     onContextMenu={e => e.preventDefault()}
-                    onCanPlayThrough={e => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
                     onError={() => setMediaError(true)}
-                    onStalled={e => {
-                      const v = e.target as HTMLVideoElement;
-                      if (!v.paused && v.readyState < 3) { v.load(); v.play().catch(() => {}); }
-                    }}
                   />
                 )}
               </div>
             )}
 
-            {/* Audio */}
+            {/* Audio player */}
             {viewerType === 'audio' && (
               <div className="flex-1 flex items-center justify-center p-6">
                 <div className="w-full max-w-sm rounded-2xl p-8 text-center" style={{ background:'rgba(255,143,0,0.1)', border:'1px solid rgba(255,143,0,0.3)' }}>
@@ -606,9 +576,7 @@ export default function FolderView() {
                       controls
                       preload="auto"
                       className="w-full"
-                      controlsList="nodownload"
                       onContextMenu={e => e.preventDefault()}
-                      onCanPlayThrough={e => { (e.target as HTMLAudioElement).play().catch(() => {}); }}
                       onError={() => setMediaError(true)}
                     />
                   )}
@@ -616,7 +584,7 @@ export default function FolderView() {
               </div>
             )}
 
-            {/* PDF — custom PDF.js viewer (no download, full text search) */}
+            {/* PDF viewer */}
             {viewerType === 'pdf' && (
               <PdfViewer
                 url={proxyUrl(viewerFile.id)}
@@ -625,14 +593,14 @@ export default function FolderView() {
               />
             )}
 
-            {/* HTML / Text / Generic — iframe */}
+            {/* HTML / Chat viewer — full sandbox with all permissions for WhatsApp HTML exports */}
             {(viewerType === 'html' || viewerType === 'text' || viewerType === 'generic') && (
               <div className="flex-1 overflow-hidden">
                 <iframe
                   src={proxyUrl(viewerFile.id)}
                   className="w-full h-full border-0"
                   title={viewerFile.name}
-                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation"
                 />
               </div>
             )}
