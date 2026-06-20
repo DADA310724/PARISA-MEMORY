@@ -475,15 +475,31 @@ driveRouter.get("/list-screenshots", async (req: Request, res: Response) => {
   if (!rootFolderId) { res.status(400).json({ error: "folderId required" }); return; }
   try {
     const token = await getAccessToken();
-    const subUrl = new URL("https://www.googleapis.com/drive/v3/files");
-    subUrl.searchParams.set("q", `'${rootFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-    subUrl.searchParams.set("fields", "files(id,name)");
-    subUrl.searchParams.set("pageSize", "20");
-    const subResp = await fetch(subUrl.toString(), { headers: { Authorization: `Bearer ${token}` } });
+
+    // Fetch root-level images AND subfolders in parallel
+    const [subResp, rootImgResp] = await Promise.all([
+      fetch(
+        (() => { const u = new URL("https://www.googleapis.com/drive/v3/files"); u.searchParams.set("q", `'${rootFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`); u.searchParams.set("fields", "files(id,name)"); u.searchParams.set("pageSize", "20"); return u.toString(); })(),
+        { headers: { Authorization: `Bearer ${token}` } }
+      ),
+      fetch(
+        (() => { const u = new URL("https://www.googleapis.com/drive/v3/files"); u.searchParams.set("q", `'${rootFolderId}' in parents and mimeType contains 'image/' and trashed=false`); u.searchParams.set("fields", "files(id,name,modifiedTime)"); u.searchParams.set("orderBy", "modifiedTime desc"); u.searchParams.set("pageSize", "200"); return u.toString(); })(),
+        { headers: { Authorization: `Bearer ${token}` } }
+      ),
+    ]);
+
     if (!subResp.ok) { res.status(subResp.status).json({ error: await subResp.text() }); return; }
     const subData = await subResp.json() as { files: Array<{ id: string; name: string }> };
 
     const result: Record<string, Array<{ id: string; name: string; modifiedTime: string }>> = {};
+
+    // Include root-level images directly in the folder (e.g. Photos folder with no subfolders)
+    if (rootImgResp.ok) {
+      const rootImgData = await rootImgResp.json() as { files: Array<{ id: string; name: string; modifiedTime: string }> };
+      if (rootImgData.files.length > 0) result["__root__"] = rootImgData.files;
+    }
+
+    // Include subfolder images
     await Promise.all(
       subData.files.map(async (folder) => {
         const fileUrl = new URL("https://www.googleapis.com/drive/v3/files");
@@ -494,7 +510,7 @@ driveRouter.get("/list-screenshots", async (req: Request, res: Response) => {
         const fileResp = await fetch(fileUrl.toString(), { headers: { Authorization: `Bearer ${token}` } });
         if (!fileResp.ok) return;
         const fileData = await fileResp.json() as { files: Array<{ id: string; name: string; modifiedTime: string }> };
-        result[folder.name] = fileData.files;
+        if (fileData.files.length > 0) result[folder.name] = fileData.files;
       })
     );
     res.json({ subfolders: result });

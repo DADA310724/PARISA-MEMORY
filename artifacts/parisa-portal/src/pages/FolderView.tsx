@@ -49,6 +49,7 @@ export default function FolderView() {
   const touchStartX = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const viewerOpenedAt = useRef<number>(0);
+  const autoRetryCount = useRef(0);
 
   const imageFiles = files.filter(isImage);
   const currentFolder = breadcrumbs[breadcrumbs.length - 1];
@@ -166,7 +167,7 @@ export default function FolderView() {
     setViewerFile(f);
     const type = isImage(f) ? "photo" : isVideo(f) ? "video" : isAudio(f) ? "audio" : isPdf(f) ? "pdf" : isHtml(f) ? "html" : isText(f) ? "text" : "file";
     notifyFileOpen(f, type);
-    setMediaError(false);
+    setMediaError(false); autoRetryCount.current = 0;
     if (isImage(f)) { setViewerType("image"); setViewerIndex(imgIdx ?? 0); setViewerOpen(true); return; }
     if (isVideo(f)) { setViewerType("video"); setViewerOpen(true); return; }
     if (isAudio(f)) { setViewerType("audio"); setViewerOpen(true); return; }
@@ -545,7 +546,13 @@ export default function FolderView() {
                       preload="auto"
                       style={{ width:'100%', maxHeight:'calc(100vh - 120px)', objectFit:'contain', display:'block' }}
                       onContextMenu={e => e.preventDefault()}
-                      onError={() => setMediaError(true)}
+                      onError={() => {
+                        if (autoRetryCount.current < 3) {
+                          const delay = (autoRetryCount.current + 1) * 1500;
+                          autoRetryCount.current++;
+                          setTimeout(() => setMediaRetryKey(k => k + 1), delay);
+                        } else { setMediaError(true); }
+                      }}
                     />
                     <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'8px 12px 6px', background:'linear-gradient(transparent,rgba(0,0,0,0.7))', pointerEvents:'none' }}>
                       <p className="text-white/70 truncate" style={{ fontSize:11, fontFamily:"'Hind Siliguri',sans-serif" }}>{viewerFile.name}</p>
@@ -596,7 +603,13 @@ export default function FolderView() {
                       preload="auto"
                       style={{ width:'100%', borderRadius:12, accentColor:'#a855f7' }}
                       onContextMenu={e => e.preventDefault()}
-                      onError={() => setMediaError(true)}
+                      onError={() => {
+                        if (autoRetryCount.current < 3) {
+                          const delay = (autoRetryCount.current + 1) * 1500;
+                          autoRetryCount.current++;
+                          setTimeout(() => setMediaRetryKey(k => k + 1), delay);
+                        } else { setMediaError(true); }
+                      }}
                     />
                   )}
                 </div>
