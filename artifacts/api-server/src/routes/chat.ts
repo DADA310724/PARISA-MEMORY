@@ -23,10 +23,18 @@ let _db: Conversation[] | null = null;
 function getDb(): Conversation[] {
   if (_db) return _db;
   try {
-    const fp = path.join(__dirname, "chat_database.json");
+    // In dist/routes/chat.js, __dirname = dist/routes/ → go up one level
+    const fp = path.join(__dirname, "../chat_database.json");
     _db = JSON.parse(fs.readFileSync(fp, "utf8")) as Conversation[];
     return _db;
-  } catch { return []; }
+  } catch {
+    // Fallback: try same directory (dev mode src/routes/)
+    try {
+      const fp2 = path.join(__dirname, "chat_database.json");
+      _db = JSON.parse(fs.readFileSync(fp2, "utf8")) as Conversation[];
+      return _db;
+    } catch { return []; }
+  }
 }
 
 function normConv(s: string) { return s.toLowerCase().replace(/[\s_\-\.]/g, ""); }
