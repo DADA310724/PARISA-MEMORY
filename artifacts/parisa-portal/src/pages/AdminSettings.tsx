@@ -647,7 +647,7 @@ export default function AdminSettings() {
       icon: newSub.logo_key || "folder",
       link_type: subLinkType,
       drive_folder_id: subLinkType === "drive_folder" ? (newSub.drive_folder_id || "") : "",
-      link_value: subLinkType === "external" ? (newSub.link_value || "") : "",
+      link_value: subLinkType !== "drive_folder" ? (newSub.link_value || "") : "",
       last_message: newSub.last_message || "",
       badge: Number(newSub.badge) || 0,
       order: editingSubId

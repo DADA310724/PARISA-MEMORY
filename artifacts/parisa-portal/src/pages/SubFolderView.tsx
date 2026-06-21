@@ -76,11 +76,12 @@ export default function SubFolderView() {
   }, [buttonId]);
 
   function handleSubClick(sub: SubButton) {
-    if (sub.link_type === "external" && sub.link_value) {
-      // Open in-app viewer instead of leaving the app
+    if ((sub.link_type === "external" || sub.link_type === "html") && sub.link_value) {
       setLocation(`/view?url=${encodeURIComponent(sub.link_value)}&title=${encodeURIComponent(sub.label)}`);
     } else if (sub.link_type === "drive_folder" && sub.drive_folder_id) {
       setLocation(`/folder/${sub.drive_folder_id}?label=${encodeURIComponent(sub.label)}`);
+    } else if (sub.link_value) {
+      setLocation(`/view?url=${encodeURIComponent(sub.link_value)}&title=${encodeURIComponent(sub.label)}`);
     }
   }
 
