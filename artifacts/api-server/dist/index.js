@@ -35,6 +35,9 @@ app.use("/api/chat", chatRouter);
 app.get("/api/healthz", (_req, res) => {
     res.json({ status: "ok" });
 });
+app.get("/", (_req, res) => {
+    res.json({ status: "ok" });
+});
 app.use((err, _req, res, _next) => {
     console.error(err);
     res.status(500).json({ error: err.message ?? "Internal server error" });

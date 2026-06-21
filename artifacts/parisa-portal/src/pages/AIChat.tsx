@@ -578,8 +578,7 @@ export default function AIChatPage() {
               folderLabels.set(btn.drive_folder_id, btn.label);
               if (isLocked) lockedFolderIds.add(btn.drive_folder_id);
             }
-            const screenshotLabels = ['screenshots', 'স্ক্রিনশট', 'photos', 'photo', 'ছবি', 'gallery', 'স্ক্রিন শট'];
-            if (screenshotLabels.some(k => btn.label.toLowerCase().includes(k)) && btn.drive_folder_id) setScreenshotFolderId(btn.drive_folder_id);
+            if (btn.label === "Screenshots" && btn.drive_folder_id) setScreenshotFolderId(btn.drive_folder_id);
           }
         }
         buildContext();
