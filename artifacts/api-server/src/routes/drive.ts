@@ -334,16 +334,33 @@ driveRouter.get("/mediaurl/:id", async (req: Request, res: Response) => {
   res.json({ url: `/api/drive/stream/${encodeURIComponent(id)}` });
 });
 
-// Proxy route for images, PDFs, HTML — redirects are fine for non-streaming content
+// Proxy route for images, PDFs, HTML — pipes content directly (no redirect)
+// This avoids X-Frame-Options and CORS blocks from googleapis.com
 driveRouter.get("/proxy/:id", async (req: Request, res: Response) => {
   const id = String(req.params["id"]);
   try {
     const token = await getAccessToken();
-    const driveUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&acknowledgeAbuse=true&access_token=${encodeURIComponent(token)}`;
+    const driveUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&acknowledgeAbuse=true`;
+    const driveResp = await fetch(driveUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!driveResp.ok) {
+      res.status(driveResp.status).send("Google Drive error");
+      return;
+    }
+    const ct = driveResp.headers.get("content-type") ?? "application/octet-stream";
+    res.setHeader("Content-Type", ct);
     res.setHeader("Cache-Control", "no-store, no-cache");
-    res.redirect(302, driveUrl);
+    // Allow embedding in iframes — remove any restrictive framing headers
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.removeHeader("Content-Security-Policy");
+    const cl = driveResp.headers.get("content-length");
+    if (cl) res.setHeader("Content-Length", cl);
+    if (!driveResp.body) { res.end(); return; }
+    const { Readable } = await import("node:stream");
+    Readable.fromWeb(driveResp.body as import("stream/web").ReadableStream).pipe(res);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    if (!res.headersSent) res.status(500).json({ error: String(err) });
   }
 });
 
