@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowLeft, Folder, ChevronRight } from "lucide-react";
+import { ArrowLeft, Folder, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { useApp, type SubButton } from "@/contexts/AppContext";
 import { AppLogo } from "@/components/AppLogo";
 
@@ -32,7 +32,7 @@ export default function SubFolderView() {
   const params = useParams<{ buttonId: string }>();
   const buttonId = params.buttonId;
   const [, setLocation] = useLocation();
-  const { buttons, getSubButtons } = useApp();
+  const { buttons, getSubButtons, isAdmin, reorderSubButtons } = useApp();
   const [subs, setSubs] = useState<SubButton[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -109,16 +109,9 @@ export default function SubFolderView() {
       </div>
 
       {loading ? (
-        <div className="space-y-0 divide-y divide-white/5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-4 animate-pulse">
-              <div className="w-12 h-12 rounded-full bg-white/8 shrink-0" />
-              <div className="flex-1">
-                <div className="h-3.5 bg-white/8 rounded w-32 mb-2" />
-                <div className="h-2.5 bg-white/5 rounded w-48" />
-              </div>
-            </div>
-          ))}
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
+          <p className="text-white/50 text-sm">লোড হচ্ছে…</p>
         </div>
       ) : subs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
@@ -133,36 +126,66 @@ export default function SubFolderView() {
         <div className="divide-y divide-white/5">
           {subs.map((sub, idx) => {
             const color = BTN_COLOR[sub.logo_key ?? sub.icon ?? "default"] ?? BTN_COLOR.default;
+            const moveUp = async () => {
+              if (idx === 0 || !buttonId) return;
+              const updated = [...subs];
+              [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+              setSubs(updated);
+              await reorderSubButtons(buttonId, updated.map(s => s.id));
+            };
+            const moveDown = async () => {
+              if (idx === subs.length - 1 || !buttonId) return;
+              const updated = [...subs];
+              [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+              setSubs(updated);
+              await reorderSubButtons(buttonId, updated.map(s => s.id));
+            };
             return (
-              <motion.button key={sub.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.05 }} onClick={() => handleSubClick(sub)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/4 active:bg-white/6 transition-colors text-left">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 relative"
-                  style={{ background: `${color}22`, border: `2px solid ${color}55` }}>
-                  <AppLogo logoKey={sub.logo_key ?? sub.icon ?? "folder"} size={5} className="w-7 h-7 rounded-lg" />
-                  {typeof sub.badge === "number" && sub.badge > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
-                      style={{ background: color, boxShadow: `0 0 6px ${color}80` }}>
-                      {sub.badge > 99 ? "99+" : sub.badge}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-white text-[15px] truncate leading-tight">{sub.label}</p>
-                    {typeof sub.file_count === "number" && (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border"
-                        style={{ background: `${color}22`, borderColor: `${color}55`, color: color, boxShadow: `0 0 6px ${color}40` }}>
-                        {sub.file_count} টি
+              <div key={sub.id} className="flex items-center">
+                {isAdmin && (
+                  <div className="flex flex-col gap-0.5 pl-2 shrink-0">
+                    <button onClick={moveUp} disabled={idx === 0}
+                      className="w-6 h-5 rounded flex items-center justify-center disabled:opacity-20"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
+                    <button onClick={moveDown} disabled={idx === subs.length - 1}
+                      className="w-6 h-5 rounded flex items-center justify-center disabled:opacity-20"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+                <motion.button initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }} onClick={() => handleSubClick(sub)}
+                  className="flex-1 flex items-center gap-3 px-4 py-3.5 hover:bg-white/4 active:bg-white/6 transition-colors text-left min-w-0">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 relative"
+                    style={{ background: `${color}22`, border: `2px solid ${color}55` }}>
+                    <AppLogo logoKey={sub.logo_key ?? sub.icon ?? "folder"} size={5} className="w-7 h-7 rounded-lg" />
+                    {typeof sub.badge === "number" && sub.badge > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
+                        style={{ background: color, boxShadow: `0 0 6px ${color}80` }}>
+                        {sub.badge > 99 ? "99+" : sub.badge}
                       </span>
                     )}
                   </div>
-                  <p className="text-[12px] text-white/45 truncate mt-0.5 font-['Hind_Siliguri']">
-                    {sub.last_message ?? sub.description ?? "ক্লিক করুন খুলতে"}
-                  </p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
-              </motion.button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-white text-[15px] truncate leading-tight">{sub.label}</p>
+                      {typeof sub.file_count === "number" && (
+                        <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                          style={{ background: `${color}22`, borderColor: `${color}55`, color: color, boxShadow: `0 0 6px ${color}40` }}>
+                          {sub.file_count} টি
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-white/45 truncate mt-0.5 font-['Hind_Siliguri']">
+                      {sub.last_message ?? sub.description ?? "ক্লিক করুন খুলতে"}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
+                </motion.button>
+              </div>
             );
           })}
         </div>
