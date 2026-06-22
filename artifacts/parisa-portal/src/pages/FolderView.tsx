@@ -57,6 +57,8 @@ export default function FolderView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const touchStartX = useRef(0);
+  const [imgScale, setImgScale] = useState(1);
+  const pinchRef = useRef({ dist: 0, scale: 1 });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const viewerOpenedAt = useRef<number>(0);
   const historyPushed = useRef(false);
@@ -179,7 +181,7 @@ export default function FolderView() {
 
   const openFolder = (f: DriveFile) => { setLoading(true); setBreadcrumbs(b => [...b, { id: f.id, name: f.name }]); setFiles([]); };
   const navigateBreadcrumb = (idx: number) => { setLoading(true); setBreadcrumbs(b => b.slice(0, idx + 1)); setFiles([]); };
-  const goBack = () => { if (breadcrumbs.length > 1) { setBreadcrumbs(b => b.slice(0, -1)); setFiles([]); } else { navigate("/"); } };
+  const goBack = () => { if (breadcrumbs.length > 1) { setBreadcrumbs(b => b.slice(0, -1)); setFiles([]); } else { window.history.back(); } };
 
   const notifyFileOpen = (f: DriveFile, type: string) => {
     void api("/telegram/notify", {
@@ -228,10 +230,36 @@ export default function FolderView() {
     preload((viewerIndex - 1 + imageFiles.length) % imageFiles.length);
   }, [viewerIndex, viewerType, imageFiles]);
 
-  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+  // Reset zoom when image changes
+  useEffect(() => { setImgScale(1); }, [viewerIndex]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      pinchRef.current.dist = Math.hypot(dx, dy);
+      pinchRef.current.scale = imgScale;
+    } else {
+      touchStartX.current = e.touches[0].clientX;
+    }
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const newDist = Math.hypot(dx, dy);
+      if (pinchRef.current.dist > 0) {
+        const ratio = newDist / pinchRef.current.dist;
+        setImgScale(s => Math.max(1, Math.min(5, pinchRef.current.scale * ratio)));
+      }
+    }
+  };
   const handleTouchEnd = (e: React.TouchEvent) => {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) > 50) { dx < 0 ? nextImage() : prevImage(); }
+    if (e.touches.length === 0 && e.changedTouches.length === 1 && imgScale <= 1.1) {
+      const dx = e.changedTouches[0].clientX - touchStartX.current;
+      if (Math.abs(dx) > 50) { dx < 0 ? nextImage() : prevImage(); }
+    }
+    if (imgScale < 1.05) setImgScale(1);
   };
 
   const handleUploadClick = async () => {
@@ -532,18 +560,34 @@ export default function FolderView() {
             {/* ── Image viewer ── */}
             {viewerType === 'image' && (
               <div className="flex-1 flex items-center justify-center relative overflow-hidden"
-                onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}>
                 <AnimatePresence mode="wait">
                   <motion.img key={viewerIndex}
-                    initial={{ opacity:0, x:40 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-40 }}
+                    initial={{ opacity:0, x: imgScale > 1 ? 0 : 40 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x: imgScale > 1 ? 0 : -40 }}
                     transition={{ duration:0.18 }}
                     src={proxyUrl(imageFiles[viewerIndex]?.id ?? '')}
                     alt={imageFiles[viewerIndex]?.name}
                     className="max-w-full object-contain select-none"
-                    style={{ maxHeight:'calc(100vh - 130px)' }}
+                    style={{
+                      maxHeight:'calc(100vh - 130px)',
+                      transform: `scale(${imgScale})`,
+                      transformOrigin: 'center center',
+                      transition: imgScale === 1 ? 'transform 0.2s ease' : 'none',
+                      touchAction: 'none',
+                    }}
+                    onDoubleClick={() => setImgScale(s => s > 1 ? 1 : 2.5)}
                   />
                 </AnimatePresence>
-                {imageFiles.length > 1 && (
+                {imgScale > 1 && (
+                  <button onClick={() => setImgScale(1)}
+                    className="absolute top-3 right-3 px-3 py-1.5 rounded-xl text-xs text-white font-medium"
+                    style={{ background:'rgba(0,0,0,0.7)', border:'1px solid rgba(255,255,255,0.2)' }}>
+                    ↙ Reset
+                  </button>
+                )}
+                {imageFiles.length > 1 && imgScale <= 1 && (
                   <>
                     <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white text-2xl" style={{ background:'rgba(0,0,0,0.6)' }}>‹</button>
                     <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white text-2xl" style={{ background:'rgba(0,0,0,0.6)' }}>›</button>
