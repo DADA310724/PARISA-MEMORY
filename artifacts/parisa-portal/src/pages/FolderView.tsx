@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
-import { listFolder, type DriveFile, isFolder, isImage, isVideo, isAudio, isHtml, isPdf, isText, formatSize, proxyUrl, streamUrl, uploadFiles } from "../lib/drive";
+import { listFolder, type DriveFile, isFolder, isImage, isVideo, isAudio, isHtml, isPdf, isText, formatSize, proxyUrl, uploadFiles } from "../lib/drive";
 import { useApp } from "../contexts/AppContext";
 import { ensureFirebase, ref, get, set } from "../lib/firebase";
 import { api } from "../lib/api";
@@ -25,7 +25,7 @@ export default function FolderView() {
   const { isAdmin } = useApp();
 
   const [files, setFiles] = useState<DriveFile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -49,8 +49,8 @@ export default function FolderView() {
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerType, setViewerType] = useState<"image"|"video"|"audio"|"html"|"pdf"|"text"|"generic">("image");
   const [viewerFile, setViewerFile] = useState<DriveFile | null>(null);
+  const [mediaError, setMediaError] = useState(false);
   const [mediaRetryKey, setMediaRetryKey] = useState(0);
-  const mediaRetryCount = useRef(0);
   const [mediaCurTime, setMediaCurTime] = useState(0);
   const [mediaDuration, setMediaDuration] = useState(0);
   const [mediaBuffering, setMediaBuffering] = useState(false);
@@ -79,7 +79,7 @@ export default function FolderView() {
       const db = await ensureFirebase();
       const snap = await get(ref(db, `folder_passwords/${folderId}`));
       const val = snap.val() as FolderLock | null;
-      if (val?.password) { setLockData(val); setLocked(true); setLoading(false); } else { setLockData(null); setLocked(false); }
+      if (val?.password) { setLockData(val); setLocked(true); } else { setLockData(null); setLocked(false); }
     } catch { setLocked(false); }
     finally { setLockChecking(false); }
   }, []);
@@ -89,11 +89,9 @@ export default function FolderView() {
     try {
       const { files: f } = await listFolder(folderId);
       setFiles(f);
-      // Layer 2: aggressive prefetch for THIS folder — runs immediately, no delay
-      // This overrides the login-time background queue with higher priority for the active folder
-      const mediaInFolder = f.filter(file => isVideo(file) || isAudio(file));
-      mediaInFolder.slice(0, 30).forEach(file => {
-        fetch(`/api/drive/prefetch/${file.id}`).catch(() => {});
+      // Background prefetch first 25 audio/video → warms server cache for fast first-play
+      f.filter(file => isVideo(file) || isAudio(file)).slice(0, 25).forEach(file => {
+        fetch(`/api/drive/prefetch/${file.id}`, { priority: "low" } as RequestInit).catch(() => {});
       });
       void api("/telegram/notify", {
         method: "POST",
@@ -154,7 +152,7 @@ export default function FolderView() {
     setMediaCurTime(0);
     setMediaDuration(0);
     setMediaBuffering(false);
-    mediaRetryCount.current = 0;
+    setMediaError(false);
   }, [viewerFile, currentFolder.name]);
 
   // ── Back button intercept: ফোনের back বাটন viewer বন্ধ করবে, folder থেকে বের হবে না ──
@@ -179,9 +177,9 @@ export default function FolderView() {
     else { setLockError("পাসওয়ার্ড ভুল! আবার চেষ্টা করুন।"); }
   };
 
-  const openFolder = (f: DriveFile) => { setLoading(true); setBreadcrumbs(b => [...b, { id: f.id, name: f.name }]); setFiles([]); };
-  const navigateBreadcrumb = (idx: number) => { setLoading(true); setBreadcrumbs(b => b.slice(0, idx + 1)); setFiles([]); };
-  const goBack = () => { if (breadcrumbs.length > 1) { setBreadcrumbs(b => b.slice(0, -1)); setFiles([]); } else { window.history.back(); } };
+  const openFolder = (f: DriveFile) => { setBreadcrumbs(b => [...b, { id: f.id, name: f.name }]); setFiles([]); };
+  const navigateBreadcrumb = (idx: number) => { setBreadcrumbs(b => b.slice(0, idx + 1)); setFiles([]); };
+  const goBack = () => { if (breadcrumbs.length > 1) { setBreadcrumbs(b => b.slice(0, -1)); setFiles([]); } else { navigate("/"); } };
 
   const notifyFileOpen = (f: DriveFile, type: string) => {
     void api("/telegram/notify", {
@@ -194,7 +192,7 @@ export default function FolderView() {
     if (isFolder(f)) { openFolder(f); return; }
     viewerOpenedAt.current = Date.now();
     setViewerFile(f);
-    mediaRetryCount.current = 0;
+    setMediaError(false);
     setMediaCurTime(0);
     setMediaDuration(0);
     setMediaBuffering(false);
@@ -262,11 +260,7 @@ export default function FolderView() {
     if (imgScale < 1.05) setImgScale(1);
   };
 
-  const handleUploadClick = async () => {
-    try {
-      const status = await api<{ ready: boolean }>("/drive/ready");
-      if (!status.ready) { showToast("Google Drive সংযুক্ত নয়। Admin Settings → Drive ট্যাব দেখুন।", "err"); return; }
-    } catch {}
+  const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
@@ -393,15 +387,17 @@ export default function FolderView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-3 w-full">
+      <div className="flex-1 relative">
         {(loading || lockChecking) && (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-12 h-12 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-white/40 text-sm">লোড হচ্ছে...</p>
+          <div className="absolute inset-0 flex items-center justify-center"
+            style={{ background: 'rgba(10,14,31,0.97)', zIndex: 5 }}>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
+              <p className="text-white/50 text-sm">লোড হচ্ছে…</p>
             </div>
           </div>
         )}
+        <div className="p-3 w-full">
         {error && (
           <div className="rounded-xl p-6 text-center" style={{ background:'rgba(255,50,50,0.08)', border:'1px solid rgba(255,50,50,0.2)' }}>
             <p className="text-red-400 mb-3">{error}</p>
@@ -526,6 +522,7 @@ export default function FolderView() {
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
@@ -560,9 +557,7 @@ export default function FolderView() {
             {/* ── Image viewer ── */}
             {viewerType === 'image' && (
               <div className="flex-1 flex items-center justify-center relative overflow-hidden"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}>
+                onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
                 <AnimatePresence mode="wait">
                   <motion.img key={viewerIndex}
                     initial={{ opacity:0, x: imgScale > 1 ? 0 : 40 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x: imgScale > 1 ? 0 : -40 }}
@@ -580,13 +575,22 @@ export default function FolderView() {
                     onDoubleClick={() => setImgScale(s => s > 1 ? 1 : 2.5)}
                   />
                 </AnimatePresence>
-                {imgScale > 1 && (
-                  <button onClick={() => setImgScale(1)}
-                    className="absolute top-3 right-3 px-3 py-1.5 rounded-xl text-xs text-white font-medium"
-                    style={{ background:'rgba(0,0,0,0.7)', border:'1px solid rgba(255,255,255,0.2)' }}>
-                    ↙ Reset
-                  </button>
-                )}
+                {/* Zoom controls */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
+                  <button onClick={() => setImgScale(s => Math.max(1, s - 0.5))}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xl font-bold active:scale-90 transition-transform"
+                    style={{ background:'rgba(0,0,0,0.75)', border:'1px solid rgba(255,255,255,0.25)' }}>−</button>
+                  {imgScale !== 1 && (
+                    <button onClick={() => setImgScale(1)}
+                      className="px-3 py-1.5 rounded-xl text-xs text-white font-medium active:scale-90 transition-transform"
+                      style={{ background:'rgba(0,0,0,0.75)', border:'1px solid rgba(255,255,255,0.25)' }}>
+                      ↙ Reset
+                    </button>
+                  )}
+                  <button onClick={() => setImgScale(s => Math.min(5, s + 0.5))}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xl font-bold active:scale-90 transition-transform"
+                    style={{ background:'rgba(0,0,0,0.75)', border:'1px solid rgba(255,255,255,0.25)' }}>+</button>
+                </div>
                 {imageFiles.length > 1 && imgScale <= 1 && (
                   <>
                     <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white text-2xl" style={{ background:'rgba(0,0,0,0.6)' }}>‹</button>
@@ -598,22 +602,30 @@ export default function FolderView() {
 
             {/* ── Video Player ── */}
             {viewerType === 'video' && (
-              <div className="flex-1 flex flex-col"
-                style={{ background:'#000' }}
-                onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
-                onTouchEnd={e => { const dx = e.changedTouches[0].clientX - touchStartX.current; if (Math.abs(dx) > 55) { dx < 0 ? nextVideo() : prevVideo(); } }}>
+              <div className="flex-1 flex flex-col" style={{ background:'#000' }}>
+                {mediaError ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center p-8">
+                      <p className="text-white/60 text-sm mb-4" style={{ fontFamily:"'Hind Siliguri',sans-serif" }}>ভিডিও লোড হয়নি</p>
+                      <button onClick={() => { setMediaError(false); setMediaRetryKey(k => k + 1); }}
+                        className="px-5 py-2 rounded-xl text-sm font-bold"
+                        style={{ background:'rgba(0,229,255,0.15)', border:'1px solid rgba(0,229,255,0.4)', color:'#00e5ff' }}>
+                        আবার চেষ্টা করুন
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col">
                     {/* Video element */}
                     <div className="flex-1 flex items-center justify-center relative" style={{ background:'#000' }}>
                       <video
                         key={`v-${viewerFile.id}-${mediaRetryKey}`}
                         ref={videoRef}
-                        src={streamUrl(viewerFile.id)}
+                        src={proxyUrl(viewerFile.id)}
                         controls
                         playsInline
                         autoPlay
                         preload="auto"
-                        controlsList="nodownload noplaybackrate"
-                        disablePictureInPicture
                         style={{ width:'100%', maxHeight:'calc(100vh - 180px)', objectFit:'contain', display:'block' }}
                         onContextMenu={e => e.preventDefault()}
                         onTimeUpdate={e => setMediaCurTime((e.target as HTMLVideoElement).currentTime)}
@@ -621,7 +633,7 @@ export default function FolderView() {
                         onWaiting={() => setMediaBuffering(true)}
                         onPlaying={() => setMediaBuffering(false)}
                         onCanPlay={() => setMediaBuffering(false)}
-                        onError={() => { if (mediaRetryCount.current < 3) { mediaRetryCount.current += 1; setTimeout(() => setMediaRetryKey(k => k + 1), 1500); } }}
+                        onError={() => setMediaError(true)}
                       />
                       {/* Buffering indicator */}
                       {mediaBuffering && (
@@ -649,21 +661,15 @@ export default function FolderView() {
                         )}
                       </div>
                     </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* ── Audio Player ── */}
             {viewerType === 'audio' && (
-              <div className="flex-1 flex items-center justify-center p-4"
-                onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
-                onTouchEnd={e => { const dx = e.changedTouches[0].clientX - touchStartX.current; if (Math.abs(dx) > 55) { dx < 0 ? nextAudio() : prevAudio(); } }}>
-                <div className="w-full max-w-md relative" style={{ background:'linear-gradient(145deg,rgba(20,10,40,0.95),rgba(10,5,25,0.98))', border:'1px solid rgba(180,100,255,0.25)', borderRadius:24, padding:'28px 20px', boxShadow:'0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(140,80,255,0.08)' }}>
-
-                  {/* Back button inside card */}
-                  <button onClick={closeViewer}
-                    style={{ position:'absolute', top:14, left:14, width:34, height:34, borderRadius:10, background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-                    <ArrowLeft style={{ width:16, height:16, color:'rgba(255,255,255,0.7)' }} />
-                  </button>
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="w-full max-w-md" style={{ background:'linear-gradient(145deg,rgba(20,10,40,0.95),rgba(10,5,25,0.98))', border:'1px solid rgba(180,100,255,0.25)', borderRadius:24, padding:'28px 20px', boxShadow:'0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(140,80,255,0.08)' }}>
 
                   {/* Waveform animation */}
                   <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'center', gap:3, height:48, marginBottom:20 }}>
@@ -688,21 +694,30 @@ export default function FolderView() {
                     {viewerFile.name.replace(/\.[^.]+$/, '')}
                   </p>
 
-                  <>
+                  {mediaError ? (
+                    <div className="text-center">
+                      <p className="text-white/60 text-sm mb-3" style={{ fontFamily:"'Hind Siliguri',sans-serif" }}>অডিও লোড হয়নি</p>
+                      <button onClick={() => { setMediaError(false); setMediaRetryKey(k => k + 1); }}
+                        className="px-5 py-2 rounded-xl text-sm font-bold mx-auto block"
+                        style={{ background:'rgba(160,80,255,0.15)', border:'1px solid rgba(160,80,255,0.4)', color:'#c084fc' }}>
+                        আবার চেষ্টা করুন
+                      </button>
+                    </div>
+                  ) : (
+                    <>
                       {/* Audio element */}
                       <audio
                         key={`a-${viewerFile.id}-${mediaRetryKey}`}
                         ref={audioRef}
-                        src={streamUrl(viewerFile.id)}
+                        src={proxyUrl(viewerFile.id)}
                         controls
                         autoPlay
                         preload="auto"
-                        controlsList="nodownload noplaybackrate"
                         style={{ width:'100%', borderRadius:10, accentColor:'#a855f7', marginBottom:12 }}
                         onContextMenu={e => e.preventDefault()}
                         onTimeUpdate={e => setMediaCurTime((e.target as HTMLAudioElement).currentTime)}
                         onLoadedMetadata={e => setMediaDuration((e.target as HTMLAudioElement).duration)}
-                        onError={() => { if (mediaRetryCount.current < 3) { mediaRetryCount.current += 1; setTimeout(() => setMediaRetryKey(k => k + 1), 1500); } }}
+                        onError={() => setMediaError(true)}
                       />
 
                       {/* Progress bar */}
@@ -726,6 +741,7 @@ export default function FolderView() {
                         )}
                       </div>
                     </>
+                  )}
                 </div>
               </div>
             )}
