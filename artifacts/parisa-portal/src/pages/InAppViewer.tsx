@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, ExternalLink, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 
 function normalizeUrl(raw: string): string {
@@ -48,13 +48,7 @@ export default function InAppViewer() {
           style={{ color: "#00e5ff", textShadow: "0 0 8px rgba(0,229,255,0.5)" }}>
           {title}
         </p>
-        {url && (
-          <button onClick={openInBrowser} title="ব্রাউজারে খুলুন"
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <ExternalLink className="w-4 h-4" />
-          </button>
-        )}
+        <div className="w-9 h-9 flex-shrink-0" />
       </div>
 
       {!url ? (
@@ -92,7 +86,7 @@ export default function InAppViewer() {
             className="w-full h-full border-0"
             style={{ position: "absolute", inset: 0 }}
             title={title}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation"
             allow="autoplay; fullscreen; camera; microphone; clipboard-read; clipboard-write; payment"
             referrerPolicy="no-referrer-when-downgrade"
             onLoad={() => setLoaded(true)}
