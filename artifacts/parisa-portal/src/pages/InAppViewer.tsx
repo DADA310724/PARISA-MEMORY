@@ -86,7 +86,7 @@ export default function InAppViewer() {
             className="w-full h-full border-0"
             style={{ position: "absolute", inset: 0 }}
             title={title}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation"
             allow="autoplay; fullscreen; camera; microphone; clipboard-read; clipboard-write; payment"
             referrerPolicy="no-referrer-when-downgrade"
             onLoad={() => setLoaded(true)}
